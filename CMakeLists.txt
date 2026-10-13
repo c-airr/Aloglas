@@ -50,6 +50,13 @@ target_link_libraries(aloglas_audio PUBLIC aloglas_engine PRIVATE aloglas_miniau
 # Third-party code: compile without our warning flags.
 set_source_files_properties(src/audio/miniaudio_impl.c PROPERTIES COMPILE_OPTIONS "-w")
 
+# --- ui --------------------------------------------------------------------
+add_library(aloglas_ui STATIC
+  src/ui/widget.cpp
+  src/ui/event_router.cpp)
+aloglas_project_target(aloglas_ui)
+target_link_libraries(aloglas_ui PUBLIC aloglas_core)
+
 # --- app -------------------------------------------------------------------
 add_executable(aloglas src/app/main.cpp)
 aloglas_project_target(aloglas)
@@ -67,9 +74,11 @@ add_executable(aloglas_tests
   tests/rt_guard_test.cpp
   tests/engine_clock_test.cpp
   tests/engine_loop_test.cpp
-  tests/audio_device_test.cpp)
+  tests/audio_device_test.cpp
+  tests/geometry_test.cpp
+  tests/event_router_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
-target_link_libraries(aloglas_tests PRIVATE aloglas_doctest aloglas_core aloglas_engine aloglas_audio)
+target_link_libraries(aloglas_tests PRIVATE aloglas_doctest aloglas_core aloglas_engine aloglas_audio aloglas_ui)
 add_test(NAME aloglas_tests COMMAND aloglas_tests)
