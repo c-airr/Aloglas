@@ -1,8 +1,8 @@
 # Stage 1: Playlist + Transport — Design
 
 Date: 2026-10-13
-Status: draft, awaiting review
-Project name: placeholder `daw` (final name TBD by the author; rename is a folder/target rename only)
+Status: approved
+Project: **Aloglas** (https://github.com/c-airr/Aloglas, MIT License)
 
 ## 1. Context
 
@@ -358,7 +358,7 @@ playhead; loop jumps are click-free and on time; idle CPU usage is ~0%.
 
 ## 10. Open items for the author
 
-- Final project name.
-- License for the public repository (dependencies are all permissive: zlib,
-  MIT, MIT-0, OFL).
 - Visual design (theme, font) — planned separately, replaces `Theme` only.
+
+The project is MIT-licensed; all dependencies are compatible (zlib, MIT,
+MIT-0, OFL for the font, which must ship with its license file).
