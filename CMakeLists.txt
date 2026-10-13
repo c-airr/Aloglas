@@ -21,7 +21,8 @@ endfunction()
 # --- core ------------------------------------------------------------------
 add_library(aloglas_core STATIC
   src/core/time.cpp
-  src/core/rt_guard.cpp)
+  src/core/rt_guard.cpp
+  src/core/utf8.cpp)
 aloglas_project_target(aloglas_core)
 target_include_directories(aloglas_core PUBLIC src)
 
@@ -55,7 +56,9 @@ set_source_files_properties(src/audio/miniaudio_impl.c PROPERTIES COMPILE_OPTION
 # --- ui --------------------------------------------------------------------
 add_library(aloglas_ui STATIC
   src/ui/widget.cpp
-  src/ui/event_router.cpp)
+  src/ui/event_router.cpp
+  src/ui/text_edit.cpp
+  src/ui/number_format.cpp)
 aloglas_project_target(aloglas_ui)
 target_link_libraries(aloglas_ui PUBLIC aloglas_core)
 
@@ -78,7 +81,10 @@ add_executable(aloglas_tests
   tests/engine_loop_test.cpp
   tests/audio_device_test.cpp
   tests/geometry_test.cpp
-  tests/event_router_test.cpp)
+  tests/event_router_test.cpp
+  tests/utf8_test.cpp
+  tests/text_edit_test.cpp
+  tests/number_format_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
