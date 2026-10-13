@@ -16,6 +16,12 @@ function(aloglas_static_exe target)
   target_link_options(${target} PRIVATE -static)
 endfunction()
 
+# --- core ------------------------------------------------------------------
+add_library(aloglas_core STATIC
+  src/core/time.cpp)
+aloglas_project_target(aloglas_core)
+target_include_directories(aloglas_core PUBLIC src)
+
 # --- app -------------------------------------------------------------------
 add_executable(aloglas src/app/main.cpp)
 aloglas_project_target(aloglas)
@@ -26,9 +32,11 @@ target_link_libraries(aloglas PRIVATE SDL3::SDL3-static aloglas_glad aloglas_nan
 enable_testing()
 add_executable(aloglas_tests
   tests/test_main.cpp
-  tests/smoke_test.cpp)
+  tests/smoke_test.cpp
+  tests/time_test.cpp
+  tests/float_lesson_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
-target_link_libraries(aloglas_tests PRIVATE aloglas_doctest)
+target_link_libraries(aloglas_tests PRIVATE aloglas_doctest aloglas_core)
 add_test(NAME aloglas_tests COMMAND aloglas_tests)
