@@ -7,7 +7,9 @@ include(cmake/deps.cmake)
 function(aloglas_project_target target)
   target_compile_features(${target} PUBLIC cxx_std_20)
   set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF)
-  target_compile_options(${target} PRIVATE -Wall -Wextra)
+  # -Wno-missing-field-initializers: our event/config structs give every field
+  # a default, so initializing only the first few ({.pos} style) is intended.
+  target_compile_options(${target} PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
 endfunction()
 
 # Link the C++ runtime (libc++, libunwind, winpthread) statically, so the .exe
