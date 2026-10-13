@@ -56,7 +56,8 @@ add_executable(aloglas_tests
   tests/float_lesson_test.cpp
   tests/spsc_queue_test.cpp
   tests/rt_guard_test.cpp
-  tests/engine_clock_test.cpp)
+  tests/engine_clock_test.cpp
+  tests/engine_loop_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)

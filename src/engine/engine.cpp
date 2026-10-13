@@ -25,7 +25,10 @@ bool Engine::send(const Command& command) {
     return false;
 }
 
+// FL Studio behavior: with the loop brace enabled, playback starts at the
+// loop start; otherwise at the start marker. Stop returns here.
 int64_t Engine::origin() const {
+    if (loop_enabled_ && loop_end_ > loop_start_) return loop_start_;
     return start_marker_;
 }
 
@@ -108,7 +111,17 @@ void Engine::render(float* out, uint32_t frames) {
                 }
                 next_beat_ += beat_len;
             }
+            const double before = pos_;
             pos_ += ticks_per_sample_;
+            // Loop only when the playhead crosses the loop end during this
+            // sample; a playhead that is already past the end plays on.
+            if (loop_enabled_ && loop_end_ > loop_start_ && before < static_cast<double>(loop_end_) &&
+                pos_ >= static_cast<double>(loop_end_)) {
+                // Keep the overshoot so the loop stays in phase with the tempo.
+                pos_ = static_cast<double>(loop_start_) + (pos_ - static_cast<double>(loop_end_));
+                // A beat sitting on the loop start must click on the next sample.
+                next_beat_ = first_beat_at_or_after(static_cast<double>(loop_start_), sig_);
+            }
         }
         const float s = click_.next();
         out[2 * i] = s;
