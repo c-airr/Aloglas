@@ -18,9 +18,21 @@ endfunction()
 
 # --- core ------------------------------------------------------------------
 add_library(aloglas_core STATIC
-  src/core/time.cpp)
+  src/core/time.cpp
+  src/core/rt_guard.cpp)
 aloglas_project_target(aloglas_core)
 target_include_directories(aloglas_core PUBLIC src)
+
+# Audio-thread allocation guard: on by default in Debug (see core/rt_guard.h).
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(_rt_guard_default ON)
+else()
+  set(_rt_guard_default OFF)
+endif()
+option(ALOGLAS_RT_GUARD "Abort on allocation/free inside the audio thread" ${_rt_guard_default})
+if(ALOGLAS_RT_GUARD)
+  target_compile_definitions(aloglas_core PRIVATE ALOGLAS_RT_GUARD)
+endif()
 
 # --- app -------------------------------------------------------------------
 add_executable(aloglas src/app/main.cpp)
@@ -35,7 +47,8 @@ add_executable(aloglas_tests
   tests/smoke_test.cpp
   tests/time_test.cpp
   tests/float_lesson_test.cpp
-  tests/spsc_queue_test.cpp)
+  tests/spsc_queue_test.cpp
+  tests/rt_guard_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
