@@ -1,0 +1,126 @@
+#include "engine/engine.h"
+
+#include <cassert>
+
+#include "core/rt_guard.h"
+
+namespace aloglas {
+
+Engine::Engine() {
+    prepare(48000.0);
+}
+
+void Engine::prepare(double sample_rate) {
+    sample_rate_ = sample_rate;
+    ticks_per_sample_ = ticks_per_sample(bpm_, sample_rate_);
+    click_.prepare(sample_rate_);
+}
+
+bool Engine::send(const Command& command) {
+    if (queue_.push(command)) return true;
+    dropped_.fetch_add(1, std::memory_order_relaxed);
+    // A full queue means the audio thread has not run for a long time (or the
+    // UI floods it). Debug builds stop here so the cause gets investigated.
+    assert(!assert_on_drop_ && "engine command queue full");
+    return false;
+}
+
+int64_t Engine::origin() const {
+    return start_marker_;
+}
+
+void Engine::apply(const Command& c) {
+    switch (c.type) {
+    case CommandType::Play:
+        if (!playing_) {
+            playing_ = true;
+            pos_ = static_cast<double>(origin());
+            next_beat_ = first_beat_at_or_after(pos_, sig_);
+        }
+        break;
+    case CommandType::Stop:
+        playing_ = false;
+        click_.stop();
+        pos_ = static_cast<double>(origin());
+        break;
+    case CommandType::Seek:
+        pos_ = static_cast<double>(c.a);
+        next_beat_ = first_beat_at_or_after(pos_, sig_);
+        break;
+    case CommandType::SetTempo:
+        bpm_ = c.number;
+        ticks_per_sample_ = ticks_per_sample(bpm_, sample_rate_);
+        break;
+    case CommandType::SetSignature:
+        sig_ = {static_cast<int>(c.a), static_cast<int>(c.b)};
+        next_beat_ = first_beat_at_or_after(pos_, sig_);
+        break;
+    case CommandType::SetMetronome:
+        metronome_ = c.flag;
+        if (!metronome_) click_.stop();
+        break;
+    case CommandType::SetLoop:
+        loop_enabled_ = c.flag;
+        loop_start_ = c.a;
+        loop_end_ = c.b;
+        if (!playing_) pos_ = static_cast<double>(origin());
+        break;
+    case CommandType::SetStart:
+        start_marker_ = c.a;
+        if (!playing_) pos_ = static_cast<double>(origin());
+        break;
+    }
+}
+
+void Engine::log_click(bool accent) {
+    click_log_[clicks_written_ % kClickLogSize] = {frame_, accent};
+    ++clicks_written_;
+}
+
+std::size_t Engine::click_count() const {
+    return clicks_written_ < kClickLogSize ? clicks_written_ : kClickLogSize;
+}
+
+ClickEvent Engine::click(std::size_t i) const {
+    const std::size_t oldest = clicks_written_ < kClickLogSize ? 0 : clicks_written_ - kClickLogSize;
+    return click_log_[(oldest + i) % kClickLogSize];
+}
+
+void Engine::render(float* out, uint32_t frames) {
+    rt::AudioThreadScope audio_thread;  // debug builds abort on allocation below
+
+    Command c;
+    while (queue_.pop(c)) apply(c);
+
+    const int64_t beat_len = ticks_per_beat(sig_);
+    const int64_t bar_len = ticks_per_bar(sig_);
+
+    // One iteration per sample. Every event (click, later notes and the loop
+    // jump) is checked against the playhead of this exact sample, so the
+    // result does not depend on how the audio device splits time into buffers.
+    for (uint32_t i = 0; i < frames; ++i) {
+        if (playing_) {
+            if (pos_ >= static_cast<double>(next_beat_)) {
+                if (metronome_) {
+                    const bool accent = next_beat_ % bar_len == 0;
+                    click_.trigger(accent);
+                    log_click(accent);
+                }
+                next_beat_ += beat_len;
+            }
+            pos_ += ticks_per_sample_;
+        }
+        const float s = click_.next();
+        out[2 * i] = s;
+        out[2 * i + 1] = s;
+        ++frame_;
+    }
+
+    // relaxed is enough: each value is independent and the UI only needs a
+    // recent value, not one consistent with other memory writes.
+    pub_playing_.store(playing_, std::memory_order_relaxed);
+    pub_position_.store(pos_, std::memory_order_relaxed);
+    pub_frames_.store(frame_, std::memory_order_relaxed);
+}
+
+}  // namespace aloglas

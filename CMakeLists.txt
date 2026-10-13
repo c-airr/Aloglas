@@ -34,6 +34,13 @@ if(ALOGLAS_RT_GUARD)
   target_compile_definitions(aloglas_core PRIVATE ALOGLAS_RT_GUARD)
 endif()
 
+# --- engine ----------------------------------------------------------------
+add_library(aloglas_engine STATIC
+  src/engine/click.cpp
+  src/engine/engine.cpp)
+aloglas_project_target(aloglas_engine)
+target_link_libraries(aloglas_engine PUBLIC aloglas_core)
+
 # --- app -------------------------------------------------------------------
 add_executable(aloglas src/app/main.cpp)
 aloglas_project_target(aloglas)
@@ -48,9 +55,10 @@ add_executable(aloglas_tests
   tests/time_test.cpp
   tests/float_lesson_test.cpp
   tests/spsc_queue_test.cpp
-  tests/rt_guard_test.cpp)
+  tests/rt_guard_test.cpp
+  tests/engine_clock_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
-target_link_libraries(aloglas_tests PRIVATE aloglas_doctest aloglas_core)
+target_link_libraries(aloglas_tests PRIVATE aloglas_doctest aloglas_core aloglas_engine)
 add_test(NAME aloglas_tests COMMAND aloglas_tests)
