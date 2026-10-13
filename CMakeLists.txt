@@ -34,7 +34,8 @@ add_executable(aloglas_tests
   tests/test_main.cpp
   tests/smoke_test.cpp
   tests/time_test.cpp
-  tests/float_lesson_test.cpp)
+  tests/float_lesson_test.cpp
+  tests/spsc_queue_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
