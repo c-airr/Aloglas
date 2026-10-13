@@ -50,7 +50,7 @@ device selection, tempo or time-signature changes over time, Linux/macOS builds.
 | 2D drawing | NanoVG (GL3 backend) + glad for GL 3.3 core loading | zlib / MIT |
 | Audio I/O | miniaudio (single header) | MIT-0 / public domain |
 | Tests | doctest | MIT |
-| PNG writing (screenshots) | stb_image_write | MIT / public domain |
+| PNG writing (screenshots) | `SDL_SavePNG` (built into SDL 3.4) | zlib |
 | Font | Inter, embedded (temporary until the author picks one) | OFL |
 
 Target platform for stage 1: Windows x64. Builds run locally, not through
@@ -139,6 +139,8 @@ be rendered offline in tests (and later for WAV export).
   enabled, otherwise the start marker.
 - **Stop** stops and returns the playhead to the play origin, evaluated at the
   moment of stopping (so a start marker moved during playback is honored).
+- While stopped, the playhead always sits at the play origin, so moving the
+  start marker or the loop while stopped moves the playhead with it.
 - Space toggles Play/Stop.
 - Clicking the ruler sets the start marker. While playing, it also seeks the
   playhead there.
@@ -228,7 +230,8 @@ mouse and Shift+arrows, clipboard copy/paste through SDL), `Label`,
 ### 8.1 Document and Controller
 
 - `Document`: tempo (20.00–999.00 BPM, two decimals, default 140), signature
-  (numerator 1–32, denominator 1/2/4/8/16, default 4/4), metronome on/off,
+  (numerator 1–32, denominator 1/2/4/8/16, default 4/4), metronome on/off
+  (default on — it is the only sound in stage 1),
   loop (enabled, start, end; default bars 1–5 disabled), start marker
   (default bar 1), follow-playhead flag (default on), tracks (name, id),
   selected track.
@@ -266,9 +269,10 @@ position display `bar.beat.sixteenth` (1-based, e.g. `1.1.1`) and time
 ### 8.4 Playlist
 
 - **Ruler**, two strips:
-  - **Loop strip** (top): drag on an empty area creates a loop region; drag
-    the brace body to move it; drag its edges to resize; double-click
-    toggles loop on/off.
+  - **Loop strip** (top): drag on an empty area creates a loop region and
+    enables the loop; drag the brace body to move it; drag its edges to
+    resize; double-click toggles loop on/off. The brace is always drawn:
+    accent-colored when enabled, gray when disabled.
   - **Bar numbers** (bottom): click sets the start marker (seek while
     playing).
 - **Snap:** loop edges and the start marker snap to the current grid
@@ -281,7 +285,8 @@ position display `bar.beat.sixteenth` (1-based, e.g. `1.1.1`) and time
 - **Scroll:** wheel scrolls vertically, Shift+wheel horizontally. The
   timeline extends to 1000 bars.
 - **Playhead:** vertical line at `position_ticks`. With follow on, when the
-  playhead leaves the visible range the view pages forward (Ableton-style
+  playhead leaves the visible range (forward, or backward after a loop jump)
+  the view jumps so the playhead sits at the left edge (Ableton-style page
   jump, not continuous scroll).
 - **Start marker:** small triangle on the ruler plus a faint line.
 
