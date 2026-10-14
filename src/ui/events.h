@@ -8,7 +8,7 @@
 
 namespace aloglas {
 
-enum class Key { Unknown, Space, Enter, Escape, Backspace, Delete, Left, Right, Up, Down, Home, End, Tab, A, C, L, T, V, X };
+enum class Key { Unknown, Space, Enter, Escape, Backspace, Delete, Left, Right, Up, Down, Home, End, Tab, A, C, L, T, V, X, D1, D2, D3, D4 };
 
 struct Modifiers {
     bool shift = false;

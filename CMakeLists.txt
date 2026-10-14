@@ -58,15 +58,25 @@ add_library(aloglas_ui STATIC
   src/ui/widget.cpp
   src/ui/event_router.cpp
   src/ui/text_edit.cpp
-  src/ui/number_format.cpp)
+  src/ui/number_format.cpp
+  src/ui/text_fit.cpp
+  src/ui/theme.cpp
+  src/ui/canvas.cpp
+  src/ui/fonts.cpp
+  src/ui/window.cpp
+  src/ui/win32_titlebar.cpp)
 aloglas_project_target(aloglas_ui)
-target_link_libraries(aloglas_ui PUBLIC aloglas_core)
+target_link_libraries(aloglas_ui
+  PUBLIC aloglas_core
+  PRIVATE SDL3::SDL3-static aloglas_glad aloglas_nanovg dwmapi)
 
 # --- app -------------------------------------------------------------------
-add_executable(aloglas src/app/main.cpp)
+add_executable(aloglas
+  src/app/main.cpp
+  src/app/demo/palette_preview.cpp)
 aloglas_project_target(aloglas)
 aloglas_static_exe(aloglas)
-target_link_libraries(aloglas PRIVATE SDL3::SDL3-static aloglas_glad aloglas_nanovg)
+target_link_libraries(aloglas PRIVATE aloglas_ui SDL3::SDL3-static)
 
 # --- tests -----------------------------------------------------------------
 enable_testing()
@@ -84,7 +94,8 @@ add_executable(aloglas_tests
   tests/event_router_test.cpp
   tests/utf8_test.cpp
   tests/text_edit_test.cpp
-  tests/number_format_test.cpp)
+  tests/number_format_test.cpp
+  tests/text_fit_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
