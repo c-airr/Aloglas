@@ -104,6 +104,20 @@ TEST_CASE("TextField commit, cancel, focus loss") {
     }
 }
 
+// Final review finding 7: the committed text must not change under the
+// callback when the callback edits (or rebuilds) the field.
+TEST_CASE("TextField commit on focus loss passes a stable copy") {
+    Fixture<TextField> f;
+    std::string seen;
+    f.widget.on_commit = [&](const std::string& s) {
+        f.widget.edit().set_text("changed");
+        seen = s;
+    };
+    f.widget.begin("old");
+    click(f.router, f.outside);
+    CHECK(seen == "old");
+}
+
 TEST_CASE("TextField consumes Space and Delete, lets Ctrl+T bubble") {
     Fixture<TextField> f;
     f.widget.begin("a b");

@@ -69,6 +69,10 @@ public:
     virtual bool focusable() const { return false; }
 
     // Return true when the event was handled (stops bubbling to the parent).
+    // A handler that changes the widget tree (adds, removes or destroys
+    // widgets) must return true: after `false` the router walks on to the
+    // parent, which must still exist. Dynamic children must be remove()d
+    // before they are destroyed, so the router can forget them.
     virtual bool on_mouse_down(const MouseEvent&) { return false; }
     virtual void on_mouse_up(const MouseEvent&) {}
     virtual void on_mouse_move(const MouseEvent&) {}  // while captured or hovered

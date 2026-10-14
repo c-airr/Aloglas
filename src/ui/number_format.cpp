@@ -20,6 +20,8 @@ std::size_t nearest_allowed_index(const NumberSpec& spec, double value) {
 }  // namespace
 
 double clamp_to_spec(const NumberSpec& spec, double value) {
+    // NaN compares false with everything, so std::clamp would return it unchanged.
+    if (std::isnan(value)) return spec.allowed.empty() ? spec.min : spec.allowed.front();
     if (!spec.allowed.empty()) return spec.allowed[nearest_allowed_index(spec, value)];
     const double scale = std::pow(10.0, spec.decimals);
     const double rounded = std::round(value * scale) / scale;
@@ -45,6 +47,7 @@ std::optional<double> parse_number(const NumberSpec& spec, std::string_view text
     const char* end = t.data() + t.size();
     const auto [ptr, ec] = std::from_chars(t.data(), end, value);
     if (ec != std::errc() || ptr != end) return std::nullopt;  // "12abc" is not a number
+    if (!std::isfinite(value)) return std::nullopt;             // from_chars accepts "nan" and "inf"
     return clamp_to_spec(spec, value);
 }
 

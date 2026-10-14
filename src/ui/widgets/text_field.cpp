@@ -40,10 +40,12 @@ void TextField::on_focus_gained() {
 void TextField::on_focus_lost() {
     if (UiHost* h = host()) h->set_text_input(false);
     if (active_) {
-        // Clicked somewhere else: keep what was typed.
+        // Clicked somewhere else: keep what was typed. Pass a copy: the
+        // callback may edit or rebuild this field while using the text.
         active_ = false;
         invalidate();
-        if (on_commit) on_commit(edit_.text());
+        const std::string text = edit_.text();
+        if (on_commit) on_commit(text);
     }
 }
 

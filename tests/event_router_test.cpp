@@ -1,5 +1,6 @@
 #include <doctest.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -24,7 +25,10 @@ struct Probe : Widget {
     void on_hover_enter() override { log_.push_back(name + ":enter"); }
     void on_hover_leave() override { log_.push_back(name + ":leave"); }
     void on_focus_gained() override { log_.push_back(name + ":focus_gained"); }
-    void on_focus_lost() override { log_.push_back(name + ":focus_lost"); }
+    void on_focus_lost() override {
+        log_.push_back(name + ":focus_lost");
+        if (on_lost) on_lost();
+    }
     bool focusable() const override { return can_focus; }
 
     std::string name;
@@ -32,6 +36,7 @@ struct Probe : Widget {
     bool handles_wheel = false;
     bool handles_keys = false;
     bool can_focus = false;
+    std::function<void()> on_lost;  // runs inside on_focus_lost (e.g. a commit that rebuilds rows)
 
 private:
     std::vector<std::string>& log_;
@@ -185,4 +190,50 @@ TEST_CASE("widget invalidate reaches the host") {
     Tree t;
     t.a1.invalidate();
     CHECK(t.host.invalidations == 1);
+}
+
+// Final review finding 1: a focus-loss commit can change the widget tree
+// before the click that caused it is delivered.
+TEST_CASE("a widget removed while focus is lost does not receive the click") {
+    Tree t;
+    t.a.can_focus = true;
+    t.b.handles_mouse = true;
+    t.root.handles_mouse = true;
+    t.router.set_focus(&t.a);
+    t.a.on_lost = [&] { t.root.remove(t.b); };
+    t.log.clear();
+    t.router.mouse_down({{60, 60}});  // inside b, outside a
+    CHECK(t.log == std::vector<std::string>{"a:focus_lost", "root:down"});
+    CHECK(t.router.captured() == &t.root);
+}
+
+TEST_CASE("focus_gained is not delivered to a widget removed during focus_lost") {
+    Tree t;
+    t.a.can_focus = true;
+    t.b.can_focus = true;
+    t.router.set_focus(&t.a);
+    t.a.on_lost = [&] { t.root.remove(t.b); };
+    t.log.clear();
+    t.router.set_focus(&t.b);
+    CHECK(t.log == std::vector<std::string>{"a:focus_lost"});
+    CHECK(t.router.focus() == nullptr);
+}
+
+// Final review finding 5.
+TEST_CASE("a second mouse button neither steals nor releases the capture") {
+    Tree t;
+    t.a.handles_mouse = true;
+    t.b.handles_mouse = true;
+    t.router.mouse_down({{5, 5}, MouseButton::Left});
+    REQUIRE(t.router.captured() == &t.a);
+    t.router.mouse_down({{60, 60}, MouseButton::Right});
+    t.router.mouse_up({{60, 60}, MouseButton::Right});
+    CHECK(t.router.captured() == &t.a);
+    t.log.clear();
+    t.router.mouse_move({{90, 90}});
+    t.router.mouse_up({{90, 90}, MouseButton::Left});
+    REQUIRE(t.log.size() >= 2);
+    CHECK(t.log[0] == "a:move");
+    CHECK(t.log[1] == "a:up");
+    CHECK(t.router.captured() == nullptr);
 }

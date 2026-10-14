@@ -40,6 +40,7 @@ private:
     Widget* focus_ = nullptr;
     Widget* captured_ = nullptr;
     Widget* hovered_ = nullptr;
+    MouseButton captured_button_ = MouseButton::Left;
 };
 
 }  // namespace aloglas

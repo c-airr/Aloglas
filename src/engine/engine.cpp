@@ -1,6 +1,8 @@
 #include "engine/engine.h"
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 
 #include "core/rt_guard.h"
 
@@ -51,13 +53,20 @@ void Engine::apply(const Command& c) {
         next_beat_ = first_beat_at_or_after(pos_, sig_);
         break;
     case CommandType::SetTempo:
-        bpm_ = c.number;
+        // The UI validates too, but here a bad value is fatal (NaN playhead,
+        // time running backwards), so the engine never trusts the payload.
+        if (!std::isfinite(c.number) || c.number <= 0.0) break;
+        bpm_ = std::clamp(c.number, kMinBpm, kMaxBpm);
         ticks_per_sample_ = ticks_per_sample(bpm_, sample_rate_);
         break;
-    case CommandType::SetSignature:
-        sig_ = {static_cast<int>(c.a), static_cast<int>(c.b)};
+    case CommandType::SetSignature: {
+        // A zero numerator or denominator would divide by zero on this thread.
+        const TimeSignature sig{static_cast<int>(c.a), static_cast<int>(c.b)};
+        if (c.a != sig.num || c.b != sig.den || !is_valid(sig)) break;
+        sig_ = sig;
         next_beat_ = first_beat_at_or_after(pos_, sig_);
         break;
+    }
     case CommandType::SetMetronome:
         metronome_ = c.flag;
         if (!metronome_) click_.stop();

@@ -1,5 +1,7 @@
 #include <doctest.h>
 
+#include <cmath>
+
 #include "ui/number_format.h"
 
 using namespace aloglas;
@@ -14,6 +16,11 @@ TEST_CASE("parse_number accepts comma and clamps") {  // Review Focus 3
     CHECK_FALSE(parse_number(bpm, ""));
     CHECK_FALSE(parse_number(bpm, "   "));
     CHECK_FALSE(parse_number(bpm, "12abc"));
+    // Final review finding 4: from_chars accepts these, a tempo must not.
+    CHECK_FALSE(parse_number(bpm, "nan"));
+    CHECK_FALSE(parse_number(bpm, "NaN"));
+    CHECK_FALSE(parse_number(bpm, "inf"));
+    CHECK_FALSE(parse_number(bpm, "-inf"));
 }
 
 TEST_CASE("parse_number with allowed values picks the nearest") {
@@ -40,6 +47,7 @@ TEST_CASE("clamp_to_spec and format_number") {
     const NumberSpec bpm{20, 999, 2};
     CHECK(clamp_to_spec(bpm, 140.456) == doctest::Approx(140.46));
     CHECK(clamp_to_spec(bpm, 10) == 20);
+    CHECK(clamp_to_spec(bpm, std::nan("")) == 20);  // NaN never leaks out
     CHECK(format_number(bpm, 140) == "140.00");
     CHECK(format_number({1, 32, 0}, 7) == "7");
 }

@@ -14,6 +14,8 @@ namespace aloglas {
 inline constexpr int64_t kPpq = 960;               // ticks per quarter note
 inline constexpr int64_t kTicksPerSixteenth = kPpq / 4;
 inline constexpr int kMaxBars = 1000;              // length of the timeline
+inline constexpr double kMinBpm = 20.0;
+inline constexpr double kMaxBpm = 999.0;
 
 struct TimeSignature {
     int num = 4;  // beats per bar

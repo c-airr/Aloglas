@@ -8,24 +8,36 @@ void EventRouter::set_focus(Widget* w) {
     Widget* old = focus_;
     focus_ = w;  // update first: callbacks may query focus()
     if (old) old->on_focus_lost();
-    if (w) w->on_focus_gained();
+    // on_focus_lost may have changed the tree (removing w) or moved focus
+    // elsewhere; only tell w it has focus if that is still true.
+    if (w && focus_ == w) w->on_focus_gained();
 }
 
 void EventRouter::mouse_down(const MouseEvent& e) {
+    // One drag at a time: pressing another button while one is held is
+    // ignored, so it can neither steal nor end the current drag.
+    if (captured_) return;
     Widget* target = hit_test(root_, e.pos);
     // Clicking anywhere outside the focused widget ends its focus first
     // (a text field commits its edit before the click does anything else).
-    if (focus_ && (!target || !contains_widget(*focus_, *target))) set_focus(nullptr);
+    if (focus_ && (!target || !contains_widget(*focus_, *target))) {
+        set_focus(nullptr);
+        // That commit may have rebuilt widgets: the old target may be gone.
+        target = hit_test(root_, e.pos);
+    }
     for (Widget* w = target; w; w = w->parent()) {
         if (w->on_mouse_down(e)) {
             captured_ = w;
+            captured_button_ = e.button;
             break;
         }
     }
 }
 
 void EventRouter::mouse_up(const MouseEvent& e) {
-    if (Widget* c = captured_) {
+    if (captured_) {
+        if (e.button != captured_button_) return;  // not the button that started the drag
+        Widget* c = captured_;
         captured_ = nullptr;
         c->on_mouse_up(e);
     }

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 
 #include "core/rt_guard.h"
 #include "engine/engine.h"
@@ -171,4 +172,37 @@ TEST_CASE("full queue drops and counts") {
     for (int i = 0; i < 300; ++i) accepted += e.send(Command::set_tempo(100 + i)) ? 1 : 0;
     CHECK(accepted == 256);
     CHECK(e.dropped_commands() == 44);
+}
+
+// Final review finding 3: the audio thread is the one place where a bad
+// value is fatal (integer division by zero), so the engine checks payloads.
+TEST_CASE("invalid signatures are ignored by the engine") {
+    Engine e;
+    start(e, 120);  // 4/4
+    e.send(Command::set_signature({0, 4}));
+    e.send(Command::set_signature({4, 0}));
+    e.send(Command::set_signature({4, 3}));
+    e.send(Command::set_signature({4, 5000}));
+    render_frames(e, 100'000);
+    const auto f = click_frames(e);
+    const auto a = click_accents(e);
+    REQUIRE(f.size() == 5);
+    CHECK(std::llabs(f[4] - 96'000) <= 1);
+    CHECK(a[0]);
+    CHECK(a[4]);
+}
+
+TEST_CASE("invalid tempos are ignored, huge ones clamped") {
+    Engine e;
+    start(e, 120);
+    e.send(Command::set_tempo(std::numeric_limits<double>::quiet_NaN()));
+    e.send(Command::set_tempo(0));
+    e.send(Command::set_tempo(-5));
+    e.send(Command::set_tempo(std::numeric_limits<double>::infinity()));
+    render_frames(e, 48'000);
+    CHECK(e.position_ticks() == doctest::Approx(1920.0).epsilon(0.001));
+
+    e.send(Command::set_tempo(1e9));  // clamped to 999 BPM
+    render_frames(e, 4800);
+    CHECK(e.position_ticks() == doctest::Approx(1920.0 + 4800 * ticks_per_sample(999, 48000)).epsilon(0.001));
 }
