@@ -64,7 +64,12 @@ add_library(aloglas_ui STATIC
   src/ui/canvas.cpp
   src/ui/fonts.cpp
   src/ui/window.cpp
-  src/ui/win32_titlebar.cpp)
+  src/ui/win32_titlebar.cpp
+  src/ui/widgets/label.cpp
+  src/ui/widgets/button.cpp
+  src/ui/widgets/toggle_button.cpp
+  src/ui/widgets/text_field.cpp
+  src/ui/widgets/number_box.cpp)
 aloglas_project_target(aloglas_ui)
 target_link_libraries(aloglas_ui
   PUBLIC aloglas_core
@@ -95,7 +100,8 @@ add_executable(aloglas_tests
   tests/utf8_test.cpp
   tests/text_edit_test.cpp
   tests/number_format_test.cpp
-  tests/text_fit_test.cpp)
+  tests/text_fit_test.cpp
+  tests/widgets_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
