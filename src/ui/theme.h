@@ -67,15 +67,18 @@ struct Theme {
     std::array<Color, 12> sound_colors;
 
     // Metrics in logical pixels
-    float font_size = 13;
+    // Dense, Ableton-like: controls touch inside groups, thin dividers.
+    float font_size = 12;
     float font_size_small = 11;
-    float transport_height = 40;
-    float status_height = 24;
-    float panel_header_height = 22;
-    float header_width = 180;
-    float loop_strip_height = 14;
-    float bar_numbers_height = 18;
-    float track_height = 48;
+    float control_height = 20;      // buttons and fields in bars and headers
+    float row_height = 18;          // browser and log rows
+    float transport_height = 34;
+    float status_height = 20;
+    float panel_header_height = 20;
+    float header_width = 140;       // playlist track headers
+    float loop_strip_height = 12;
+    float bar_numbers_height = 16;
+    float track_height = 40;
     float splitter = 4;
 };
 
