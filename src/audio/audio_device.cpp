@@ -8,6 +8,13 @@
 
 namespace aloglas {
 
+namespace {
+int64_t now_ms() {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+}
+}  // namespace
+
 struct AudioDevice::Impl {
     ma_context context{};
     bool context_ok = false;
@@ -32,13 +39,9 @@ struct Callbacks {
         const float sample = static_cast<float>(spent / available);
         const float old = self->cpu_load_.load(std::memory_order_relaxed);
         self->cpu_load_.store(old + 0.1f * (sample - old), std::memory_order_relaxed);
-    }
 
-    static void notification(const ma_device_notification* n) {
-        auto* self = static_cast<AudioDevice*>(n->pDevice->pUserData);
-        if (n->type == ma_device_notification_type_stopped && !self->closing_.load()) {
-            self->lost_.store(true);
-        }
+        // Heartbeat for the watchdog on the UI thread (see take_lost()).
+        self->last_callback_ms_.store(now_ms(), std::memory_order_relaxed);
     }
 };
 
@@ -50,8 +53,24 @@ AudioDevice::~AudioDevice() {
     if (impl_->context_ok) ma_context_uninit(&impl_->context);
 }
 
+bool AudioDevice::stalled() const {
+    // Whatever went wrong (unplugged, driver reset, a stop miniaudio could not
+    // even report), the symptom is the same: render() stops being called.
+    return status_ == AudioStatus::Running &&
+           now_ms() - last_callback_ms_.load(std::memory_order_relaxed) > kStallMs;
+}
+
+bool AudioDevice::take_lost() {
+    if (lost_reported_ || !stalled()) return false;
+    lost_reported_ = true;
+    return true;
+}
+
 bool AudioDevice::open() {
-    if (status_ == AudioStatus::Running) return true;
+    if (status_ == AudioStatus::Running) {
+        if (!stalled()) return true;
+        close();  // a dead stream: tear it down and open the device again
+    }
 
     if (!impl_->context_ok) {
         ma_backend null_backend[] = {ma_backend_null};
@@ -71,7 +90,6 @@ bool AudioDevice::open() {
     config.playback.channels = 2;
     config.sampleRate = 0;  // 0 = the device's native rate, no resampling inside miniaudio
     config.dataCallback = &Callbacks::data;
-    config.notificationCallback = &Callbacks::notification;
     config.pUserData = this;
 
     const ma_result r = ma_device_init(&impl_->context, &config, &impl_->device);
@@ -88,8 +106,9 @@ bool AudioDevice::open() {
     // audio thread is not calling render() yet, so nothing can race with it.
     engine_.prepare(static_cast<double>(sample_rate_));
 
-    closing_.store(false);
-    lost_.store(false);
+    // Start the watchdog clock now: the first callback may take a moment.
+    last_callback_ms_.store(now_ms(), std::memory_order_relaxed);
+    lost_reported_ = false;
     if (ma_device_start(&impl_->device) != MA_SUCCESS) {
         ma_device_uninit(&impl_->device);
         impl_->device_ok = false;
@@ -102,9 +121,16 @@ bool AudioDevice::open() {
     return true;
 }
 
+void AudioDevice::debug_stop_stream() {
+    if (impl_->device_ok) ma_device_stop(&impl_->device);
+}
+
+void AudioDevice::debug_start_stream() {
+    if (impl_->device_ok) ma_device_start(&impl_->device);
+}
+
 void AudioDevice::close() {
     if (!impl_->device_ok) return;
-    closing_.store(true);  // the "stopped" notification below is ours, not a lost device
     ma_device_uninit(&impl_->device);  // stops the stream and joins the audio thread
     impl_->device_ok = false;
     status_ = AudioStatus::Closed;

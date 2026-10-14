@@ -48,3 +48,37 @@ TEST_CASE("engine settings survive close and reopen") {
     CHECK(e.dropped_commands() == 0);
     d.close();
 }
+
+// Final review finding 2: miniaudio follows the default output by stopping
+// and restarting the stream; that is not a lost device. A stream that stays
+// stopped is, and open() must bring it back.
+TEST_CASE("a brief stream stop (output rerouted) is not a lost device") {
+    Engine e;
+    AudioDevice d(e, {.null_backend = true});
+    REQUIRE(d.open());
+    std::this_thread::sleep_for(100ms);
+    d.debug_stop_stream();
+    std::this_thread::sleep_for(50ms);
+    d.debug_start_stream();
+    std::this_thread::sleep_for(1000ms);
+    CHECK_FALSE(d.take_lost());
+    d.close();
+}
+
+TEST_CASE("a stream that stays stopped is reported lost once, and open() revives it") {
+    Engine e;
+    AudioDevice d(e, {.null_backend = true});
+    REQUIRE(d.open());
+    std::this_thread::sleep_for(100ms);
+    d.debug_stop_stream();
+    std::this_thread::sleep_for(1000ms);
+    CHECK(d.take_lost());
+    CHECK_FALSE(d.take_lost());  // reported once
+
+    const int64_t frames = e.frames_rendered();
+    REQUIRE(d.open());
+    std::this_thread::sleep_for(200ms);
+    CHECK(e.frames_rendered() > frames);
+    CHECK_FALSE(d.take_lost());
+    d.close();
+}

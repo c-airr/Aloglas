@@ -44,9 +44,18 @@ public:
     // 0.25 means rendering takes a quarter of the time available.
     float cpu_load() const { return cpu_load_.load(std::memory_order_relaxed); }
 
-    // True once after the device stopped without us asking (unplugged,
-    // driver reset). The UI then stops the transport and closes the device.
-    bool take_lost() { return lost_.exchange(false); }
+    // True once when audio callbacks have stopped arriving for longer than
+    // kStallMs while the device should be running (unplugged, driver reset).
+    // The UI then stops the transport and closes the device. A short stop
+    // that resumes by itself is not a loss: miniaudio follows a change of the
+    // default output (headphones plugged in) by stopping and restarting.
+    bool take_lost();
+    static constexpr int64_t kStallMs = 750;
+
+    // Stop/start the stream behind AudioDevice's back, the way a driver or
+    // miniaudio's default-device rerouting does. For tests and manual checks.
+    void debug_stop_stream();
+    void debug_start_stream();
 
     struct Impl;  // miniaudio state; public only so the C callbacks can reach it
 
@@ -59,9 +68,12 @@ private:
     uint32_t sample_rate_ = 0;
     uint32_t buffer_frames_ = 0;
 
+    bool stalled() const;
+
     std::atomic<float> cpu_load_{0.0f};
-    std::atomic<bool> lost_{false};
-    std::atomic<bool> closing_{false};
+    // Watchdog: steady-clock milliseconds of the last audio callback.
+    std::atomic<int64_t> last_callback_ms_{0};
+    bool lost_reported_ = false;
 
     friend struct Callbacks;
 };
