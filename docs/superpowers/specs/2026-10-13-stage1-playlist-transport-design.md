@@ -1,7 +1,7 @@
 # Stage 1: Beat-Making Core — Design
 
 Date: 2026-10-13, expanded 2026-10-14
-Status: in review (sections A–H agreed in conversation; full document awaiting the author's review)
+Status: approved by the author 2026-10-15
 Project: **Aloglas** (https://github.com/c-airr/Aloglas, MIT License)
 
 ## 1. Context
