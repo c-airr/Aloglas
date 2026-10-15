@@ -22,7 +22,8 @@ endfunction()
 add_library(aloglas_core STATIC
   src/core/time.cpp
   src/core/rt_guard.cpp
-  src/core/utf8.cpp)
+  src/core/utf8.cpp
+  src/core/natural_sort.cpp)
 aloglas_project_target(aloglas_core)
 target_include_directories(aloglas_core PUBLIC src)
 
@@ -102,7 +103,8 @@ add_library(aloglas_app_lib STATIC
   src/app/transport_bar.cpp
   src/app/panel.cpp
   src/app/main_view.cpp
-  src/app/settings.cpp)
+  src/app/settings.cpp
+  src/app/browser_model.cpp)
 aloglas_project_target(aloglas_app_lib)
 target_link_libraries(aloglas_app_lib
   PUBLIC aloglas_ui aloglas_engine aloglas_audio aloglas_core
@@ -145,7 +147,9 @@ add_executable(aloglas_tests
   tests/sample_test.cpp
   tests/sample_loader_test.cpp
   tests/sample_voice_test.cpp
-  tests/engine_preview_test.cpp)
+  tests/engine_preview_test.cpp
+  tests/natural_sort_test.cpp
+  tests/browser_model_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
