@@ -19,6 +19,11 @@
 
 namespace aloglas {
 
+struct StereoPeak {
+    float left = 0;
+    float right = 0;
+};
+
 struct ClickEvent {
     int64_t frame = 0;     // engine frame counter when the click started
     bool accent = false;
@@ -46,6 +51,11 @@ public:
     double position_ticks() const { return pub_position_.load(std::memory_order_relaxed); }
     uint32_t dropped_commands() const { return dropped_.load(std::memory_order_relaxed); }
     int64_t frames_rendered() const { return pub_frames_.load(std::memory_order_relaxed); }
+    PlayMode play_mode() const { return pub_play_mode_.load(std::memory_order_relaxed); }
+
+    // Highest absolute sample per channel since the last call (for the
+    // master meter); resets both to 0.
+    StereoPeak take_master_peak();
 
     // Tests disable the debug assert so they can fill the queue on purpose.
     void set_assert_on_drop(bool on) { assert_on_drop_ = on; }
@@ -74,6 +84,10 @@ private:
     int64_t loop_start_ = 0;
     int64_t loop_end_ = 0;
     int64_t start_marker_ = 0;
+    // Song by default so the engine alone behaves as a plain metronome; the
+    // document sends its own mode (LOOP) at startup.
+    PlayMode play_mode_ = PlayMode::Song;
+    int64_t loop_length_ = 3840;  // one 4/4 bar
 
     bool playing_ = false;
     double pos_ = 0.0;            // playhead in ticks; double, never float
@@ -90,6 +104,9 @@ private:
     std::atomic<double> pub_position_{0.0};
     std::atomic<int64_t> pub_frames_{0};
     std::atomic<uint32_t> dropped_{0};
+    std::atomic<PlayMode> pub_play_mode_{PlayMode::Song};
+    std::atomic<float> pub_peak_left_{0.0f};
+    std::atomic<float> pub_peak_right_{0.0f};
 
     // A non-lock-free atomic would hide a mutex inside, which the audio
     // thread must never take. On x86-64 these are plain loads and stores.

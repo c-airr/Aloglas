@@ -27,9 +27,11 @@ bool Engine::send(const Command& command) {
     return false;
 }
 
-// FL Studio behavior: with the loop brace enabled, playback starts at the
-// loop start; otherwise at the start marker. Stop returns here.
+// LOOP mode always starts at the loop start (tick 0). SONG mode follows FL
+// Studio: with the loop brace enabled, playback starts at the brace start;
+// otherwise at the start marker. Stop returns here.
 int64_t Engine::origin() const {
+    if (play_mode_ == PlayMode::Loop) return 0;
     if (loop_enabled_ && loop_end_ > loop_start_) return loop_start_;
     return start_marker_;
 }
@@ -81,6 +83,18 @@ void Engine::apply(const Command& c) {
         start_marker_ = c.a;
         if (!playing_) pos_ = static_cast<double>(origin());
         break;
+    case CommandType::SetPlayMode: {
+        const PlayMode mode = c.flag ? PlayMode::Song : PlayMode::Loop;
+        if (mode == play_mode_) break;
+        play_mode_ = mode;
+        // Playing or not, continue from the new mode's origin.
+        pos_ = static_cast<double>(origin());
+        next_beat_ = first_beat_at_or_after(pos_, sig_);
+        break;
+    }
+    case CommandType::SetLoopLength:
+        if (c.a > 0) loop_length_ = c.a;
+        break;
     }
 }
 
@@ -122,10 +136,19 @@ void Engine::render(float* out, uint32_t frames) {
             }
             const double before = pos_;
             pos_ += ticks_per_sample_;
-            // Loop only when the playhead crosses the loop end during this
-            // sample; a playhead that is already past the end plays on.
-            if (loop_enabled_ && loop_end_ > loop_start_ && before < static_cast<double>(loop_end_) &&
-                pos_ >= static_cast<double>(loop_end_)) {
+            if (play_mode_ == PlayMode::Loop) {
+                if (pos_ >= static_cast<double>(loop_length_)) {
+                    // fmod keeps the overshoot (stays in phase with the tempo)
+                    // and also folds a playhead the loop just shrank under.
+                    pos_ = std::fmod(pos_, static_cast<double>(loop_length_));
+                    // A beat crossed during this sample (tick 0 on a normal
+                    // wrap) must still click, on the next sample.
+                    next_beat_ = first_beat_at_or_after(pos_ - ticks_per_sample_, sig_);
+                }
+            } else if (loop_enabled_ && loop_end_ > loop_start_ && before < static_cast<double>(loop_end_) &&
+                       pos_ >= static_cast<double>(loop_end_)) {
+                // SONG: the brace loops only when the playhead crosses its end
+                // during this sample; a playhead already past the end plays on.
                 // Keep the overshoot so the loop stays in phase with the tempo.
                 pos_ = static_cast<double>(loop_start_) + (pos_ - static_cast<double>(loop_end_));
                 // A beat sitting on the loop start must click on the next sample.
@@ -138,11 +161,28 @@ void Engine::render(float* out, uint32_t frames) {
         ++frame_;
     }
 
+    float peak_l = 0.0f;
+    float peak_r = 0.0f;
+    for (uint32_t i = 0; i < frames; ++i) {
+        peak_l = std::max(peak_l, std::fabs(out[2 * i]));
+        peak_r = std::max(peak_r, std::fabs(out[2 * i + 1]));
+    }
+    // Load + store, not an atomic max: a peak lost to a race with
+    // take_master_peak() only makes one meter frame a bit low.
+    pub_peak_left_.store(std::max(pub_peak_left_.load(std::memory_order_relaxed), peak_l), std::memory_order_relaxed);
+    pub_peak_right_.store(std::max(pub_peak_right_.load(std::memory_order_relaxed), peak_r), std::memory_order_relaxed);
+
     // relaxed is enough: each value is independent and the UI only needs a
     // recent value, not one consistent with other memory writes.
     pub_playing_.store(playing_, std::memory_order_relaxed);
     pub_position_.store(pos_, std::memory_order_relaxed);
     pub_frames_.store(frame_, std::memory_order_relaxed);
+    pub_play_mode_.store(play_mode_, std::memory_order_relaxed);
+}
+
+StereoPeak Engine::take_master_peak() {
+    return {pub_peak_left_.exchange(0.0f, std::memory_order_relaxed),
+            pub_peak_right_.exchange(0.0f, std::memory_order_relaxed)};
 }
 
 }  // namespace aloglas

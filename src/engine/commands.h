@@ -12,6 +12,9 @@
 
 namespace aloglas {
 
+// LOOP plays the loop (pattern) from its start; SONG plays the playlist.
+enum class PlayMode : uint8_t { Loop, Song };
+
 enum class CommandType : uint8_t {
     Play,
     Stop,
@@ -21,6 +24,8 @@ enum class CommandType : uint8_t {
     SetMetronome,  // flag = on
     SetLoop,       // flag = enabled, a = start tick, b = end tick
     SetStart,      // a = start marker tick
+    SetPlayMode,   // flag = song
+    SetLoopLength, // a = loop length in ticks
 };
 
 struct Command {
@@ -42,6 +47,10 @@ struct Command {
         return {CommandType::SetLoop, 0.0, start, end, enabled};
     }
     static Command set_start(int64_t tick) { return {CommandType::SetStart, 0.0, tick}; }
+    static Command set_play_mode(PlayMode mode) {
+        return {CommandType::SetPlayMode, 0.0, 0, 0, mode == PlayMode::Song};
+    }
+    static Command set_loop_length(int64_t ticks) { return {CommandType::SetLoopLength, 0.0, ticks}; }
 };
 
 // Anything that accepts commands: the real Engine, or a recorder in tests.

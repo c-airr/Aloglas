@@ -101,7 +101,8 @@ add_executable(aloglas_tests
   tests/text_edit_test.cpp
   tests/number_format_test.cpp
   tests/text_fit_test.cpp
-  tests/widgets_test.cpp)
+  tests/widgets_test.cpp
+  tests/engine_mode_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
