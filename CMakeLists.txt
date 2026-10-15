@@ -84,7 +84,9 @@ add_library(aloglas_ui STATIC
   src/ui/widgets/text_field.cpp
   src/ui/widgets/number_box.cpp
   src/ui/widgets/splitter.cpp
-  src/ui/widgets/meter_bar.cpp)
+  src/ui/widgets/meter_bar.cpp
+  src/ui/widgets/tree_view.cpp
+  src/ui/widgets/popup_menu.cpp)
 aloglas_project_target(aloglas_ui)
 target_link_libraries(aloglas_ui
   PUBLIC aloglas_core
@@ -149,7 +151,8 @@ add_executable(aloglas_tests
   tests/sample_voice_test.cpp
   tests/engine_preview_test.cpp
   tests/natural_sort_test.cpp
-  tests/browser_model_test.cpp)
+  tests/browser_model_test.cpp
+  tests/tree_view_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)

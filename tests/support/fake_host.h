@@ -20,12 +20,17 @@ struct FakeHost : UiHost {
     void set_clipboard_text(std::string_view text) override { clipboard = std::string(text); }
     void set_text_input(bool on) override { text_input = on; }
     void set_cursor(Cursor c) override { cursor = c; }
+    void pick_folder(std::function<void(std::filesystem::path)> on_picked) override {
+        folder_request = std::move(on_picked);
+    }
 
     EventRouter& router;
     int invalidations = 0;
     std::string clipboard;
     bool text_input = false;
     Cursor cursor = Cursor::Arrow;
+    // The last folder request; a test calls it to play the user picking a folder.
+    std::function<void(std::filesystem::path)> folder_request;
 };
 
 inline void click(EventRouter& r, Point p, Modifiers mods = {}, int clicks = 1,

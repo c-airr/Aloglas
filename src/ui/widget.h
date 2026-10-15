@@ -10,6 +10,8 @@
 // Both kinds are registered with add().
 #pragma once
 
+#include <filesystem>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -36,6 +38,9 @@ public:
     virtual void set_clipboard_text(std::string_view text) = 0;
     virtual void set_text_input(bool on) = 0;      // start/stop OS text input
     virtual void set_cursor(Cursor c) = 0;
+    // Shows the system "choose folder" dialog; `on_picked` runs later on the
+    // UI thread, and not at all when the user cancels.
+    virtual void pick_folder(std::function<void(std::filesystem::path)> on_picked) = 0;
 };
 
 class Widget {

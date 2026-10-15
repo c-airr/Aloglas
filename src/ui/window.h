@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -86,6 +87,11 @@ public:
     void set_clipboard_text(std::string_view text) override;
     void set_text_input(bool on) override;
     void set_cursor(Cursor c) override;
+    void pick_folder(std::function<void(std::filesystem::path)> on_picked) override;
+
+    // Thread-safe: makes run() wake up from its idle wait (a background
+    // thread finished something the UI should show).
+    void wake();
 
 private:
     void handle(const SDL_Event& e, bool& running);
@@ -94,6 +100,8 @@ private:
     float to_logical() const;  // window coordinates -> logical pixels factor
     float ui_scale() const;    // logical pixels -> framebuffer pixels
     void remember_normal_placement();
+    void deliver_folder();  // UI thread: hands a picked folder to its callback
+    friend struct FolderDialog;
 
     SDL_Window* window_ = nullptr;
     SDL_GLContextState* gl_ = nullptr;
@@ -104,6 +112,14 @@ private:
     Widget* root_ = nullptr;
     std::unique_ptr<EventRouter> router_;
     bool dirty_ = true;
+    uint32_t wake_event_ = 0;  // SDL user event type
+    // Folder dialog: SDL may call back on another thread, so the result
+    // waits here under a mutex until the UI thread picks it up.
+    std::function<void(std::filesystem::path)> folder_callback_;
+    bool folder_dialog_open_ = false;
+    std::mutex folder_mutex_;
+    bool folder_done_ = false;
+    std::optional<std::filesystem::path> folder_result_;
     WindowPlacement normal_;  // last non-maximized, non-minimized position and size
     bool ok_ = false;
     std::string error_;

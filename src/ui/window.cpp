@@ -136,6 +136,7 @@ Window::Window(const WindowOptions& options) {
         return;
     }
     SDL_SetWindowMinimumSize(window_, options.min_width, options.min_height);
+    wake_event_ = SDL_RegisterEvents(1);
     if (maximized) {
         // The real normal position is the centred one SDL chose (or the
         // restored one); SDL reports the maximized rect now, so compute it.
@@ -237,6 +238,51 @@ bool mostly_visible(Rect window, const std::vector<Rect>& displays) {
         if (w >= std::min(100.0f, window.w) && h >= title.h) return true;
     }
     return false;
+}
+
+void Window::wake() {
+    if (wake_event_ == 0) return;
+    SDL_Event e{};
+    e.type = wake_event_;
+    SDL_PushEvent(&e);  // documented as safe from any thread
+}
+
+struct FolderDialog {
+    // May run on a dialog thread (SDL docs), so it only stores the result.
+    static void SDLCALL done(void* userdata, const char* const* files, int) {
+        auto* w = static_cast<Window*>(userdata);
+        {
+            std::lock_guard lock(w->folder_mutex_);
+            w->folder_done_ = true;
+            if (files && files[0]) {
+                // SDL paths are UTF-8; char8_t makes std::filesystem read them as such.
+                w->folder_result_ = std::filesystem::path(reinterpret_cast<const char8_t*>(files[0]));
+            }
+        }
+        w->wake();
+    }
+};
+
+void Window::pick_folder(std::function<void(std::filesystem::path)> on_picked) {
+    if (folder_dialog_open_ || !window_) return;  // one dialog at a time
+    folder_dialog_open_ = true;
+    folder_callback_ = std::move(on_picked);
+    SDL_ShowOpenFolderDialog(&FolderDialog::done, this, window_, nullptr, false);
+}
+
+void Window::deliver_folder() {
+    std::optional<std::filesystem::path> result;
+    {
+        std::lock_guard lock(folder_mutex_);
+        if (!folder_done_) return;
+        folder_done_ = false;
+        result = std::move(folder_result_);
+        folder_result_.reset();
+    }
+    folder_dialog_open_ = false;
+    auto callback = std::move(folder_callback_);
+    if (result && callback) callback(std::move(*result));
+    dirty_ = true;
 }
 
 WindowPlacement fit_to_display(WindowPlacement p, Rect display) {
@@ -357,6 +403,8 @@ void Window::handle(const SDL_Event& e, bool& running) {
         dirty_ = true;
         break;
     default:
+        // A background thread woke us: something may have changed on screen.
+        if (wake_event_ != 0 && e.type == wake_event_) dirty_ = true;
         break;
     }
 }
@@ -402,6 +450,7 @@ void Window::run(const std::function<bool()>& before_frame) {
             if (SDL_WaitEvent(&e)) handle(e, running);
         }
         while (SDL_PollEvent(&e)) handle(e, running);
+        deliver_folder();
         animating = before_frame ? before_frame() : false;
         if (!minimized && (dirty_ || animating)) {
             dirty_ = false;  // cleared before drawing: draw code may invalidate again
