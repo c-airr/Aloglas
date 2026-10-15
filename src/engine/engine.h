@@ -16,6 +16,9 @@
 #include "core/time.h"
 #include "engine/click.h"
 #include "engine/commands.h"
+#include "engine/garbage.h"
+#include "engine/preview.h"
+#include "engine/sample_voice.h"
 
 namespace aloglas {
 
@@ -32,6 +35,9 @@ struct ClickEvent {
 class Engine final : public CommandSink {
 public:
     Engine();
+    // Frees the preview payloads it still holds or that wait in the queues.
+    // Precondition: no audio thread runs (the device is closed).
+    ~Engine() override;
 
     void prepare(double sample_rate);
 
@@ -45,6 +51,12 @@ public:
     // Applies queued commands without rendering audio. Only valid while no
     // audio thread is running (no device, device closed).
     void pump() { render(nullptr, 0); }
+
+    // UI thread: deletes everything the audio thread has handed back.
+    void collect_garbage();
+    bool previewing() const { return pub_previewing_.load(std::memory_order_relaxed); }
+    // Garbage that could not be queued even after retrying (should stay 0).
+    uint32_t leaked_garbage() const { return leaked_.load(std::memory_order_relaxed); }
 
     // UI-thread view of the engine state (published at the end of render()).
     bool playing() const { return pub_playing_.load(std::memory_order_relaxed); }
@@ -98,6 +110,19 @@ private:
     int64_t frame_ = 0;           // frames rendered since construction
     ClickVoice click_;
 
+    // Preview: the voice that plays and the one fading out after it.
+    struct PreviewSlot {
+        SampleVoice voice;
+        PreviewPayload* payload = nullptr;
+    };
+    void start_preview(PreviewPayload* p);  // nullptr = just stop
+    void retire(PreviewPayload* p);         // hand back to the UI thread
+    PreviewSlot current_;
+    PreviewSlot fading_;
+    SpscQueue<Garbage, 256> garbage_;  // audio -> UI
+    std::array<Garbage, 8> garbage_retry_{};
+    std::size_t garbage_retry_count_ = 0;
+
     std::array<ClickEvent, kClickLogSize> click_log_{};
     std::size_t clicks_written_ = 0;
 
@@ -105,6 +130,8 @@ private:
     std::atomic<bool> pub_playing_{false};
     std::atomic<double> pub_position_{0.0};
     std::atomic<int64_t> pub_frames_{0};
+    std::atomic<bool> pub_previewing_{false};
+    std::atomic<uint32_t> leaked_{0};
     std::atomic<uint32_t> dropped_{0};
     std::atomic<PlayMode> pub_play_mode_{PlayMode::Song};
     std::atomic<float> pub_peak_left_{0.0f};

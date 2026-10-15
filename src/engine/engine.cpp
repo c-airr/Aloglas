@@ -18,8 +18,25 @@ void Engine::prepare(double sample_rate) {
     click_.prepare(sample_rate_);
 }
 
+Engine::~Engine() {
+    // No audio thread runs now, so this (UI) thread may act as the consumer.
+    Command c;
+    while (queue_.pop(c)) delete c.preview;
+    delete current_.payload;
+    delete fading_.payload;
+    for (std::size_t i = 0; i < garbage_retry_count_; ++i) garbage_retry_[i].destroy(garbage_retry_[i].object);
+    collect_garbage();
+}
+
+void Engine::collect_garbage() {
+    Garbage g;
+    while (garbage_.pop(g)) g.destroy(g.object);
+}
+
 bool Engine::send(const Command& command) {
     if (queue_.push(command)) return true;
+    // The engine never saw this payload, so it is still ours to free.
+    delete command.preview;
     dropped_.fetch_add(1, std::memory_order_relaxed);
     // A full queue means the audio thread has not run for a long time (or the
     // UI floods it). Debug builds stop here so the cause gets investigated.
@@ -95,6 +112,42 @@ void Engine::apply(const Command& c) {
     case CommandType::SetLoopLength:
         if (c.a > 0) loop_length_ = c.a;
         break;
+    case CommandType::PreviewSample:
+        start_preview(c.preview);
+        break;
+    case CommandType::StopPreview:
+        start_preview(nullptr);
+        break;
+    }
+}
+
+void Engine::retire(PreviewPayload* p) {
+    if (!p) return;
+    const Garbage g = make_garbage(p);
+    if (garbage_.push(g)) return;
+    // The UI hasn't emptied the queue for a while; keep it for a later try.
+    if (garbage_retry_count_ < garbage_retry_.size()) {
+        garbage_retry_[garbage_retry_count_++] = g;
+        return;
+    }
+    // Never free here: losing a few bytes beats a glitch in the audio.
+    leaked_.fetch_add(1, std::memory_order_relaxed);
+    assert(!"garbage queue overflow");
+}
+
+void Engine::start_preview(PreviewPayload* p) {
+    // At most two voices: a third preview cuts the oldest without a fade.
+    if (fading_.payload) {
+        fading_.voice.stop();
+        retire(fading_.payload);
+    }
+    fading_ = current_;
+    fading_.voice.fade_out(sample_rate_);
+    current_ = {};
+    if (p) {
+        current_.payload = p;
+        const Sample* s = p->sample.get();
+        if (s && s->sample_rate > 0) current_.voice.start(*s, s->sample_rate / sample_rate_, p->gain);
     }
 }
 
@@ -116,6 +169,13 @@ void Engine::render(float* out, uint32_t frames) {
     rt::AudioThreadScope audio_thread;  // debug builds abort on allocation below
 
     Command c;
+    // Retry garbage the UI couldn't take last time, oldest first.
+    std::size_t kept = 0;
+    for (std::size_t i = 0; i < garbage_retry_count_; ++i) {
+        if (!garbage_.push(garbage_retry_[i])) garbage_retry_[kept++] = garbage_retry_[i];
+    }
+    garbage_retry_count_ = kept;
+
     while (queue_.pop(c)) apply(c);
 
     const int64_t beat_len = ticks_per_beat(sig_);
@@ -156,8 +216,20 @@ void Engine::render(float* out, uint32_t frames) {
             }
         }
         const float s = click_.next();
-        out[2 * i] = s;
-        out[2 * i + 1] = s;
+        float pl = 0, pr = 0, fl = 0, fr = 0;
+        current_.voice.render_frame(pl, pr);
+        fading_.voice.render_frame(fl, fr);
+        out[2 * i] = s + pl + fl;
+        out[2 * i + 1] = s + pr + fr;
+        // A voice that just ended hands its payload back.
+        if (current_.payload && !current_.voice.active()) {
+            retire(current_.payload);
+            current_.payload = nullptr;
+        }
+        if (fading_.payload && !fading_.voice.active()) {
+            retire(fading_.payload);
+            fading_.payload = nullptr;
+        }
         ++frame_;
     }
 
@@ -178,6 +250,7 @@ void Engine::render(float* out, uint32_t frames) {
     pub_position_.store(pos_, std::memory_order_relaxed);
     pub_frames_.store(frame_, std::memory_order_relaxed);
     pub_play_mode_.store(play_mode_, std::memory_order_relaxed);
+    pub_previewing_.store(current_.voice.active() || fading_.voice.active(), std::memory_order_relaxed);
 }
 
 StereoPeak Engine::take_master_peak() {

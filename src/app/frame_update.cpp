@@ -13,9 +13,11 @@ void frame_update(Engine& engine, AudioDevice* device, Controller& controller, L
     // Without an audio thread nobody would pop the command queue: it would
     // fill up and the transport would ignore every click.
     if (!device || device->status() != AudioStatus::Running) engine.pump();
+    engine.collect_garbage();
 
     live.playing = engine.playing();
     live.commands_pending = engine.commands_pending();
+    live.previewing = engine.previewing();
     live.position_ticks = engine.position_ticks();
     live.audio_disabled = device == nullptr;
     live.audio = device ? device->status() : AudioStatus::Closed;
@@ -43,7 +45,7 @@ void frame_update(Engine& engine, AudioDevice* device, Controller& controller, L
 bool needs_frames(const LiveState& live) {
     // Pending commands: Play was clicked but the audio thread hasn't started
     // yet; keep drawing so the change shows up without waiting for input.
-    return live.playing || live.commands_pending || live.meter_left > 0.0f || live.meter_right > 0.0f;
+    return live.playing || live.previewing || live.commands_pending || live.meter_left > 0.0f || live.meter_right > 0.0f;
 }
 
 std::string status_text(const LiveState& live) {

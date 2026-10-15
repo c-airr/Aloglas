@@ -1,7 +1,8 @@
 // Commands sent from the UI thread to the audio engine.
 //
-// A Command is a small plain struct (no strings, no pointers to owned data),
-// so it can be copied through the lock-free SpscQueue without allocating.
+// A Command is a small plain struct (no strings), so it can be copied through
+// the lock-free SpscQueue without allocating. The one pointer, `preview`,
+// moves ownership of a heap payload to the engine (see engine/preview.h).
 // The meaning of the generic fields depends on the type; use the named
 // constructors instead of filling fields by hand.
 #pragma once
@@ -11,6 +12,8 @@
 #include "core/time.h"
 
 namespace aloglas {
+
+struct PreviewPayload;
 
 // LOOP plays the loop (pattern) from its start; SONG plays the playlist.
 enum class PlayMode : uint8_t { Loop, Song };
@@ -26,6 +29,8 @@ enum class CommandType : uint8_t {
     SetStart,      // a = start marker tick
     SetPlayMode,   // flag = song
     SetLoopLength, // a = loop length in ticks
+    PreviewSample, // preview = payload (owned by the engine from now on)
+    StopPreview,
 };
 
 struct Command {
@@ -34,6 +39,7 @@ struct Command {
     int64_t a = 0;
     int64_t b = 0;
     bool flag = false;
+    PreviewPayload* preview = nullptr;
 
     static Command play() { return {CommandType::Play}; }
     static Command stop() { return {CommandType::Stop}; }
@@ -51,6 +57,12 @@ struct Command {
         return {CommandType::SetPlayMode, 0.0, 0, 0, mode == PlayMode::Song};
     }
     static Command set_loop_length(int64_t ticks) { return {CommandType::SetLoopLength, 0.0, ticks}; }
+    static Command preview_sample(PreviewPayload* owned) {
+        Command c{CommandType::PreviewSample};
+        c.preview = owned;
+        return c;
+    }
+    static Command stop_preview() { return {CommandType::StopPreview}; }
 };
 
 // Anything that accepts commands: the real Engine, or a recorder in tests.

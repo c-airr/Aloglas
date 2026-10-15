@@ -54,7 +54,8 @@ target_link_libraries(aloglas_samples PUBLIC aloglas_core PRIVATE aloglas_miniau
 # --- engine ----------------------------------------------------------------
 add_library(aloglas_engine STATIC
   src/engine/click.cpp
-  src/engine/engine.cpp)
+  src/engine/engine.cpp
+  src/engine/sample_voice.cpp)
 aloglas_project_target(aloglas_engine)
 target_link_libraries(aloglas_engine PUBLIC aloglas_core aloglas_samples)
 
@@ -142,7 +143,9 @@ add_executable(aloglas_tests
   tests/main_view_test.cpp
   tests/settings_test.cpp
   tests/sample_test.cpp
-  tests/sample_loader_test.cpp)
+  tests/sample_loader_test.cpp
+  tests/sample_voice_test.cpp
+  tests/engine_preview_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
