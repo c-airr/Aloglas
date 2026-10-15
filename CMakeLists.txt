@@ -45,7 +45,9 @@ set_source_files_properties(src/audio/miniaudio_impl.c PROPERTIES COMPILE_OPTION
 
 # --- samples ---------------------------------------------------------------
 add_library(aloglas_samples STATIC
-  src/samples/sample.cpp)
+  src/samples/sample.cpp
+  src/samples/sample_loader.cpp
+  src/samples/sample_cache.cpp)
 aloglas_project_target(aloglas_samples)
 target_link_libraries(aloglas_samples PUBLIC aloglas_core PRIVATE aloglas_miniaudio)
 
@@ -139,7 +141,8 @@ add_executable(aloglas_tests
   tests/transport_bar_test.cpp
   tests/main_view_test.cpp
   tests/settings_test.cpp
-  tests/sample_test.cpp)
+  tests/sample_test.cpp
+  tests/sample_loader_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
