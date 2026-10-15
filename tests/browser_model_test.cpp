@@ -1,5 +1,6 @@
 #include <doctest.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -159,4 +160,52 @@ TEST_CASE("remove_root keeps the other roots") {
     REQUIRE(m.rows().size() == 1);
     CHECK(m.rows()[0].node->path == b.root);
     CHECK(m.rows()[0].root_index == 0);
+}
+
+// Final review: skip_permission_denied hid the error for the folder itself.
+TEST_CASE("folder without read permission logs a warning") {
+    TempTree t("aloglas_browser_denied");
+    t.dir("locked");
+    const std::string dir = (t.root / "locked").string();  // ASCII temp path, for the command line
+    REQUIRE(std::system(("icacls \"" + dir + "\" /deny *S-1-1-0:(RX) >NUL").c_str()) == 0);  // Everyone
+    Log log;
+    BrowserModel m(log);
+    m.add_root(t.root);
+    m.set_expanded(0, true);
+    m.set_expanded(1, true);
+    std::system(("icacls \"" + dir + "\" /remove:d *S-1-1-0 >NUL").c_str());
+    CHECK(warnings(log) == 1);
+}
+
+// Final review: a root that was missing (drive unplugged) stayed gray for the
+// whole session, and a folder that failed to list stayed empty forever.
+TEST_CASE("a missing root comes back when the folder appears") {
+    const fs::path p = fs::temp_directory_path() / "aloglas_browser_late";
+    fs::remove_all(p);
+    Log log;
+    BrowserModel m(log);
+    m.add_root(p);
+    REQUIRE(m.rows()[0].node->missing);
+    fs::create_directories(p);
+    std::ofstream(p / "kick.wav") << "x";
+    m.set_expanded(0, true);
+    CHECK_FALSE(m.rows()[0].node->missing);
+    CHECK(m.rows().size() == 2);
+    fs::remove_all(p);
+}
+
+TEST_CASE("a failed listing is retried on the next expand") {
+    TempTree t("aloglas_browser_retry");
+    t.dir("sub");
+    Log log;
+    BrowserModel m(log);
+    m.add_root(t.root);
+    m.set_expanded(0, true);
+    fs::remove_all(t.root / "sub");
+    m.set_expanded(1, true);  // fails: gone
+    REQUIRE(m.rows().size() == 2);
+    m.set_expanded(1, false);
+    t.file("sub/snare.wav");  // back again
+    m.set_expanded(1, true);
+    CHECK(m.rows().size() == 3);
 }

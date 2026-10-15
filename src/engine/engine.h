@@ -50,7 +50,9 @@ public:
 
     // Applies queued commands without rendering audio. Only valid while no
     // audio thread is running (no device, device closed).
-    void pump() { render(nullptr, 0); }
+    // Also drops previews: without an audio thread they can never finish
+    // (0 frames are rendered), and must not resume when a device returns.
+    void pump();
 
     // UI thread: deletes everything the audio thread has handed back.
     void collect_garbage();

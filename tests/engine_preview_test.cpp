@@ -143,3 +143,19 @@ TEST_CASE("render does not allocate or free with previews") {
     CHECK(a.expired());
     CHECK(b.expired());
 }
+
+// Final review: with no audio thread a preview can never finish (pump renders
+// 0 frames), so previewing() stayed true forever (endless redraws) and the old
+// preview resumed when the device came back.
+TEST_CASE("pump without an audio thread drops previews") {
+    Engine e;
+    quiet(e);
+    std::weak_ptr<const Sample> a;
+    e.send(Command::preview_sample(payload(1.0f, 48000, a)));
+    render_frames(e, 512);
+    REQUIRE(e.previewing());
+    e.pump();  // the device is gone: only the UI thread pumps now
+    CHECK_FALSE(e.previewing());
+    e.collect_garbage();
+    CHECK(a.expired());
+}

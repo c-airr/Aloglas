@@ -28,6 +28,17 @@ Engine::~Engine() {
     collect_garbage();
 }
 
+void Engine::pump() {
+    render(nullptr, 0);
+    // Only called while no audio thread runs, so touching the voices here is safe.
+    for (PreviewSlot* slot : {&current_, &fading_}) {
+        slot->voice.stop();
+        retire(slot->payload);
+        slot->payload = nullptr;
+    }
+    pub_previewing_.store(false, std::memory_order_relaxed);
+}
+
 void Engine::collect_garbage() {
     Garbage g;
     while (garbage_.pop(g)) g.destroy(g.object);

@@ -33,8 +33,15 @@ bool is_audio_file(const std::filesystem::path& path) {
 
 bool BrowserModel::add_root(const std::filesystem::path& path) {
     const std::filesystem::path p = clean(path);
-    for (const BrowserNode& r : roots_) {
-        if (r.path == p) return false;
+    for (BrowserNode& r : roots_) {
+        if (r.path != p) continue;
+        // Adding a gray (missing) folder again checks whether it is back.
+        std::error_code ec;
+        if (r.missing && std::filesystem::is_directory(p, ec)) {
+            r.missing = false;
+            rebuild();
+        }
+        return false;
     }
     BrowserNode root;
     root.path = p;
@@ -59,7 +66,12 @@ void BrowserModel::remove_root(std::size_t root_index) {
 void BrowserModel::set_expanded(std::size_t row, bool expanded) {
     if (row >= rows_.size()) return;
     BrowserNode& node = *rows_[row].node;
-    if (!node.folder || node.missing || node.expanded == expanded) return;
+    if (node.missing) {
+        std::error_code ec;
+        if (!std::filesystem::is_directory(node.path, ec)) return;
+        node.missing = false;  // the drive is back
+    }
+    if (!node.folder || node.expanded == expanded) return;
     if (expanded && !node.listed) list(node);
     node.expanded = expanded;
     rebuild();
@@ -76,7 +88,9 @@ void BrowserModel::list(BrowserNode& folder) {
     folder.children.clear();
     namespace fs = std::filesystem;
     std::error_code ec;
-    fs::directory_iterator it(folder.path, fs::directory_options::skip_permission_denied, ec);
+    // No skip_permission_denied: for a single folder it would only hide the
+    // error of the folder itself, which the user should see in the log.
+    fs::directory_iterator it(folder.path, fs::directory_options::none, ec);
     for (; !ec && it != fs::directory_iterator(); it.increment(ec)) {
         std::error_code type_ec;
         const bool dir = it->is_directory(type_ec);
@@ -87,7 +101,10 @@ void BrowserModel::list(BrowserNode& folder) {
         child.folder = dir;
         folder.children.push_back(std::move(child));
     }
-    if (ec) log_.add(LogLevel::Warning, "Cannot list " + utf8(folder.path) + ": " + ec.message());
+    if (ec) {
+        folder.listed = false;  // retry on the next expand (drive plugged back in)
+        log_.add(LogLevel::Warning, "Cannot list " + utf8(folder.path) + ": " + ec.message());
+    }
     std::sort(folder.children.begin(), folder.children.end(), [](const BrowserNode& a, const BrowserNode& b) {
         if (a.folder != b.folder) return a.folder;
         return natural_less(a.name, b.name);

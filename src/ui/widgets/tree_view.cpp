@@ -62,6 +62,9 @@ bool TreeView::on_mouse_down(const MouseEvent& e) {
     const float tri_x = rect.x + kLeft + r.depth * kIndent;
     const bool on_triangle = r.folder && e.pos.x >= tri_x && e.pos.x < tri_x + kIndent;
     if (on_triangle) {
+        // Select it (no preview): the highlight then follows the folder
+        // instead of staying on a row number that now shows something else.
+        select(i);
         if (on_expand) on_expand(static_cast<std::size_t>(i), !r.expanded);
         return true;
     }

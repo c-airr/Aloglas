@@ -171,3 +171,15 @@ TEST_CASE("pick_folder is routed through the host") {
     host.folder_request(std::filesystem::path(u8"C:/x/\u017C"));
     CHECK(got == std::filesystem::path(u8"C:/x/\u017C"));
 }
+
+// Final review: the selection is a row index, so expanding a folder above it
+// left the highlight on an unrelated row. A triangle press now selects its
+// folder (without previewing), so the selection follows what was touched.
+TEST_CASE("tree triangle selects its folder without reporting") {
+    Fixture f;
+    click(f.router, f.at(3));
+    f.selected.clear();
+    click(f.router, {4 + 1 * 12 + 6, f.at(1).y});
+    CHECK(f.tree.selected() == 1);
+    CHECK(f.selected.empty());
+}
