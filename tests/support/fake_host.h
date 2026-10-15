@@ -19,11 +19,13 @@ struct FakeHost : UiHost {
     std::string clipboard_text() override { return clipboard; }
     void set_clipboard_text(std::string_view text) override { clipboard = std::string(text); }
     void set_text_input(bool on) override { text_input = on; }
+    void set_cursor(Cursor c) override { cursor = c; }
 
     EventRouter& router;
     int invalidations = 0;
     std::string clipboard;
     bool text_input = false;
+    Cursor cursor = Cursor::Arrow;
 };
 
 inline void click(EventRouter& r, Point p, Modifiers mods = {}, int clicks = 1,

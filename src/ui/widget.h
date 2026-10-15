@@ -22,6 +22,8 @@ namespace aloglas {
 class Canvas;
 class Widget;
 
+enum class Cursor { Arrow, ResizeH, ResizeV };
+
 // What the widget tree needs from its environment (the Window, or a fake in tests).
 class UiHost {
 public:
@@ -33,6 +35,7 @@ public:
     virtual std::string clipboard_text() = 0;
     virtual void set_clipboard_text(std::string_view text) = 0;
     virtual void set_text_input(bool on) = 0;      // start/stop OS text input
+    virtual void set_cursor(Cursor c) = 0;
 };
 
 class Widget {
@@ -73,6 +76,10 @@ public:
     // widgets) must return true: after `false` the router walks on to the
     // parent, which must still exist. Dynamic children must be remove()d
     // before they are destroyed, so the router can forget them.
+    // Called on the pressed widget and all its ancestors before on_mouse_down,
+    // whether or not anyone handles the press (a panel notices it was clicked).
+    // Must not change the widget tree.
+    virtual void on_press_within(const MouseEvent&) {}
     virtual bool on_mouse_down(const MouseEvent&) { return false; }
     virtual void on_mouse_up(const MouseEvent&) {}
     virtual void on_mouse_move(const MouseEvent&) {}  // while captured or hovered

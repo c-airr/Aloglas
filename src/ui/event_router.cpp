@@ -25,6 +25,7 @@ void EventRouter::mouse_down(const MouseEvent& e) {
         // That commit may have rebuilt widgets: the old target may be gone.
         target = hit_test(root_, e.pos);
     }
+    for (Widget* w = target; w; w = w->parent()) w->on_press_within(e);
     for (Widget* w = target; w; w = w->parent()) {
         if (w->on_mouse_down(e)) {
             captured_ = w;

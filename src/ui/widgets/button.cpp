@@ -7,7 +7,8 @@ namespace aloglas {
 
 void Button::draw(Canvas& c) {
     const Theme& t = theme();
-    c.fill_rect(rect, pressed_ || hovered_ ? t.button_hover : t.button, 2);
+    c.fill_rect(rect, pressed_ || hovered_ ? t.button_hover : t.button);
+    c.stroke_rect(rect, t.panel_border);
     c.text(rect, label_, t.text, t.font_size_small, Canvas::Align::Center);
 }
 

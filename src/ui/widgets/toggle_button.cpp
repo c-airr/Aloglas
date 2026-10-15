@@ -15,7 +15,8 @@ void ToggleButton::draw(Canvas& c) {
     const Theme& t = theme();
     const bool on = value && value();
     const Color bg = on ? t.button_on : (pressed_ || hovered_ ? t.button_hover : t.button);
-    c.fill_rect(rect, bg, 2);
+    c.fill_rect(rect, bg);
+    c.stroke_rect(rect, t.panel_border);
     if (draw_icon) {
         draw_icon(c, rect, on);
     } else {

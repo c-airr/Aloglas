@@ -30,7 +30,8 @@ void NumberBox::draw(Canvas& c) {
         return;
     }
     const Theme& t = theme();
-    c.fill_rect(rect, dragging_ ? t.button_hover : t.field_bg, 2);
+    c.fill_rect(rect, dragging_ ? t.button_hover : t.field_bg);
+    c.stroke_rect(rect, t.panel_border);
     c.text(rect, format_number(spec_, current()), t.text, t.font_size, Canvas::Align::Center, true);
 }
 

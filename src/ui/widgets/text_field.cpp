@@ -128,8 +128,8 @@ void TextField::on_mouse_up(const MouseEvent&) {
 void TextField::draw(Canvas& c) {
     const Theme& t = theme();
     const float size = t.font_size;
-    c.fill_rect(rect, t.field_bg, 2);
-    if (active_) c.stroke_rect(rect, t.accent, 1);
+    c.fill_rect(rect, t.field_bg);
+    c.stroke_rect(rect, active_ ? t.accent : t.panel_border);
 
     stops_ = c.caret_stops(edit_.text(), size);
     auto x_of = [&](std::size_t byte) {

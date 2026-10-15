@@ -12,6 +12,7 @@
 
 struct SDL_Window;
 struct SDL_GLContextState;
+struct SDL_Cursor;
 union SDL_Event;
 struct NVGcontext;
 
@@ -57,6 +58,7 @@ public:
     std::string clipboard_text() override;
     void set_clipboard_text(std::string_view text) override;
     void set_text_input(bool on) override;
+    void set_cursor(Cursor c) override;
 
 private:
     void handle(const SDL_Event& e, bool& running);
@@ -70,6 +72,7 @@ private:
     NVGcontext* vg_ = nullptr;
     int font_regular_ = -1;
     int font_bold_ = -1;
+    SDL_Cursor* cursors_[3] = {};  // indexed by Cursor, created on first use
     Widget* root_ = nullptr;
     std::unique_ptr<EventRouter> router_;
     bool dirty_ = true;

@@ -131,6 +131,9 @@ Window::Window(const WindowOptions& options) {
 }
 
 Window::~Window() {
+    for (SDL_Cursor* c : cursors_) {
+        if (c) SDL_DestroyCursor(c);
+    }
     if (vg_) nvgDeleteGL3(vg_);
     if (gl_) SDL_GL_DestroyContext(gl_);
     if (window_) SDL_DestroyWindow(window_);
@@ -165,6 +168,14 @@ std::string Window::clipboard_text() {
 
 void Window::set_clipboard_text(std::string_view text) {
     SDL_SetClipboardText(std::string(text).c_str());
+}
+
+void Window::set_cursor(Cursor c) {
+    static constexpr SDL_SystemCursor kSystem[] = {SDL_SYSTEM_CURSOR_DEFAULT, SDL_SYSTEM_CURSOR_EW_RESIZE,
+                                                   SDL_SYSTEM_CURSOR_NS_RESIZE};
+    const auto i = static_cast<std::size_t>(c);
+    if (!cursors_[i]) cursors_[i] = SDL_CreateSystemCursor(kSystem[i]);
+    if (cursors_[i]) SDL_SetCursor(cursors_[i]);
 }
 
 void Window::set_text_input(bool on) {

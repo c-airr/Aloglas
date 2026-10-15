@@ -69,7 +69,9 @@ add_library(aloglas_ui STATIC
   src/ui/widgets/button.cpp
   src/ui/widgets/toggle_button.cpp
   src/ui/widgets/text_field.cpp
-  src/ui/widgets/number_box.cpp)
+  src/ui/widgets/number_box.cpp
+  src/ui/widgets/splitter.cpp
+  src/ui/widgets/meter_bar.cpp)
 aloglas_project_target(aloglas_ui)
 target_link_libraries(aloglas_ui
   PUBLIC aloglas_core
@@ -113,7 +115,8 @@ add_executable(aloglas_tests
   tests/widgets_test.cpp
   tests/engine_mode_test.cpp
   tests/controller_test.cpp
-  tests/log_test.cpp)
+  tests/log_test.cpp
+  tests/splitter_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
