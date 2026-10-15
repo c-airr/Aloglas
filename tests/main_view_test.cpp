@@ -1,8 +1,13 @@
 #include <doctest.h>
 
+#include "app/browser_model.h"
+#include "app/browser_panel.h"
 #include "app/controller.h"
+#include "app/previewer.h"
 #include "app/log.h"
 #include "app/main_view.h"
+#include "samples/sample_cache.h"
+#include "samples/sample_loader.h"
 #include "support/fake_host.h"
 #include "support/recording_sink.h"
 
@@ -20,7 +25,13 @@ struct Fixture {
     Controller controller{doc, sink};
     LiveState live;
     Log log;
-    MainView view{controller, live, log};
+    SampleLoader loader;
+    SampleCache cache;
+    Previewer previewer{sink, loader, cache, log};
+    BrowserModel model{log};
+    PopupMenu popup;
+    BrowserPanel browser{model, previewer, popup};
+    MainView view{controller, live, log, browser, popup};
     EventRouter router{view};
     FakeHost host{router};
 

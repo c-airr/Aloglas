@@ -23,6 +23,11 @@ double number_or(const json& obj, const char* key, double fallback, double lo, d
     return std::clamp(it->get<double>(), lo, hi);
 }
 
+std::string utf8(const std::filesystem::path& p) {
+    const std::u8string s = p.u8string();
+    return {s.begin(), s.end()};
+}
+
 bool bool_or(const json& obj, const char* key, bool fallback) {
     const auto it = obj.find(key);
     return it != obj.end() && it->is_boolean() ? it->get<bool>() : fallback;
@@ -40,7 +45,7 @@ SettingsLoad load_settings(const std::filesystem::path& path) {
     // allow_exceptions = false: invalid JSON gives a "discarded" value instead of throwing.
     const json root = json::parse(text.str(), nullptr, false);
     if (root.is_discarded() || !root.is_object()) {
-        result.warning = "Settings unreadable, using defaults: " + path.filename().string() +
+        result.warning = "Settings unreadable, using defaults: " + utf8(path.filename()) +
                          (root.is_discarded() ? " is not valid JSON" : " has the wrong shape");
         return result;
     }
@@ -61,6 +66,16 @@ SettingsLoad load_settings(const std::filesystem::path& path) {
         p.rack_share = static_cast<float>(number_or(*s, "rack_share", p.rack_share, 0, 1));
         p.piano_share = static_cast<float>(number_or(*s, "piano_share", p.piano_share, 0, 1));
     }
+    if (const auto b = root.find("browser"); b != root.end() && b->is_object()) {
+        if (const auto f = b->find("folders"); f != b->end() && f->is_array()) {
+            for (const json& item : *f) {
+                if (!item.is_string()) continue;
+                const std::string s = item.get<std::string>();
+                result.settings.browser_folders.emplace_back(std::u8string(s.begin(), s.end()));
+            }
+        }
+        result.settings.preview = bool_or(*b, "preview", result.settings.preview);
+    }
     return result;
 }
 
@@ -76,25 +91,29 @@ bool save_settings(const std::filesystem::path& path, const Settings& settings, 
                       {"rack_share", p.rack_share},
                       {"piano_share", p.piano_share}};
 
+    json folders = json::array();
+    for (const std::filesystem::path& f : settings.browser_folders) folders.push_back(utf8(f));
+    root["browser"] = {{"folders", folders}, {"preview", settings.preview}};
+
     auto fail = [&](const std::string& message) {
         if (error) *error = message;
         return false;
     };
     std::error_code ec;
     if (path.has_parent_path()) std::filesystem::create_directories(path.parent_path(), ec);
-    if (ec) return fail("cannot create " + path.parent_path().string() + ": " + ec.message());
+    if (ec) return fail("cannot create " + utf8(path.parent_path()) + ": " + ec.message());
 
     std::filesystem::path tmp = path;
     tmp += ".tmp";
     {
         std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
         out << root.dump(2) << '\n';
-        if (!out) return fail("cannot write " + tmp.string());
+        if (!out) return fail("cannot write " + utf8(tmp));
     }
     std::filesystem::rename(tmp, path, ec);  // replaces an existing file
     if (ec) {
         std::filesystem::remove(tmp, ec);
-        return fail("cannot replace " + path.string());
+        return fail("cannot replace " + utf8(path));
     }
     return true;
 }

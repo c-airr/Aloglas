@@ -1,10 +1,11 @@
 // Per-user settings (not part of a project): window placement and panel
-// sizes, in %APPDATA%\Aloglas\settings.json. Browser folders join later.
+// sizes, browser folders and the Preview switch, in %APPDATA%\Aloglas\settings.json.
 #pragma once
 
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "app/main_layout.h"
 #include "ui/window.h"
@@ -14,6 +15,8 @@ namespace aloglas {
 struct Settings {
     std::optional<WindowPlacement> window;  // empty on the first run
     PanelSizes panels;
+    std::vector<std::filesystem::path> browser_folders;
+    bool preview = true;
 };
 
 struct SettingsLoad {

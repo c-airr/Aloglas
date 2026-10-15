@@ -9,15 +9,20 @@
 #include <memory>
 #include <string>
 
+#include "app/browser_model.h"
+#include "app/browser_panel.h"
 #include "app/controller.h"
 #include "app/document.h"
 #include "app/frame_update.h"
 #include "app/live_state.h"
 #include "app/log.h"
 #include "app/main_view.h"
+#include "app/previewer.h"
 #include "app/settings.h"
 #include "audio/audio_device.h"
 #include "engine/engine.h"
+#include "samples/sample_cache.h"
+#include "samples/sample_loader.h"
 #include "ui/theme.h"
 #include "ui/window.h"
 
@@ -72,8 +77,21 @@ int main(int argc, char** argv) {
         return false;
     };
 
+    // Declared after the window: the loader's callback wakes the window, so
+    // the loader (and its thread) must be destroyed first.
+    SampleLoader loader;
+    loader.on_result = [&] { window.wake(); };
+    SampleCache cache;
+    Previewer previewer(engine, loader, cache, log);
+    previewer.audio_ready = [&] { return device && device->status() == AudioStatus::Running; };
+    BrowserModel model(log);
+    PopupMenu popup;
+    BrowserPanel browser(model, previewer, popup);
+    browser.set_preview_on(settings.settings.preview);
+    for (const auto& folder : settings.settings.browser_folders) model.add_root(folder);
+
     LiveState live;
-    MainView view(controller, live, log);
+    MainView view(controller, live, log, browser, popup);
     view.sizes() = settings.settings.panels;
     window.set_root(view);
     if (!settings.warning.empty()) log.add(LogLevel::Warning, settings.warning);
@@ -103,13 +121,15 @@ int main(int argc, char** argv) {
     }
 
     window.run([&] {
+        for (const LoadResult& r : loader.take_results()) previewer.on_result(r);
         frame_update(engine, device.get(), controller, log, live);
         return needs_frames(live);
     });
     if (device) device->close();
 
     std::string error;
-    if (!save_settings(settings_path(), {window.placement(), view.sizes()}, &error)) {
+    const Settings to_save{window.placement(), view.sizes(), model.root_paths(), browser.preview_on()};
+    if (!save_settings(settings_path(), to_save, &error)) {
         SDL_Log("Aloglas: settings not saved: %s", error.c_str());  // the log panel is gone by now
     }
     return 0;

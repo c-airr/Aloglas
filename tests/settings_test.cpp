@@ -117,3 +117,21 @@ TEST_CASE("a window bigger than the display is shrunk to fit") {
     CHECK(small.h == 700);
     CHECK(small.maximized);
 }
+
+TEST_CASE("settings keep non-ASCII browser folders") {
+    TempDir dir("aloglas_settings_browser");
+    const fs::path p = dir.path / "settings.json";
+    Settings s;
+    s.browser_folders = {fs::path(u8"C:/Sample żółć"), fs::path("D:/Splice")};
+    s.preview = false;
+    REQUIRE(save_settings(p, s, nullptr));
+    const SettingsLoad l = load_settings(p);
+    CHECK(l.settings.browser_folders == s.browser_folders);
+    CHECK_FALSE(l.settings.preview);
+
+    write_file(p, R"({"browser": {"folders": [1, "x", null]}})");
+    const SettingsLoad partial = load_settings(p);
+    REQUIRE(partial.settings.browser_folders.size() == 1);
+    CHECK(partial.settings.browser_folders[0] == fs::path("x"));
+    CHECK(partial.settings.preview);
+}

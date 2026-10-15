@@ -17,7 +17,8 @@ float share(float px, float total) {
 }
 }  // namespace
 
-MainView::MainView(Controller& controller, const LiveState& live, Log& log)
+MainView::MainView(Controller& controller, const LiveState& live, Log& log, BrowserPanel& browser,
+                   PopupMenu& popup)
     : controller_(controller),
       live_(live),
       transport_(controller, live),
@@ -43,8 +44,12 @@ MainView::MainView(Controller& controller, const LiveState& live, Log& log)
           [this](float v) {
               resize([](PanelSizes& s, float x) { s.piano_share = x; }, share(v, below_transport_height(layout_)));
           },
-          -1, [this] { resize([](PanelSizes& s, float) { s.piano_share = PanelSizes{}.piano_share; }, 0); }) {
-    browser_.set_body(browser_body_);
+          -1, [this] { resize([](PanelSizes& s, float) { s.piano_share = PanelSizes{}.piano_share; }, 0); }),
+      popup_(popup) {
+    browser_.set_body(browser);
+    // Right to left: Preview at the edge, + Folder before it.
+    browser_.add_header_widget(browser.preview_button(), 52);
+    browser_.add_header_widget(browser.add_folder_button(), 58);
     playlist_.set_body(playlist_body_);
     rack_.set_body(rack_body_);
     log_.set_body(log_body_);
@@ -63,6 +68,7 @@ MainView::MainView(Controller& controller, const LiveState& live, Log& log)
     add(split_right_);
     add(split_rack_log_);
     add(split_top_piano_);
+    add(popup_);  // on top of everything while open
 }
 
 void MainView::resize(void (*apply)(PanelSizes&, float), float v) {
@@ -87,6 +93,7 @@ void MainView::layout(Rect r) {
     split_right_.layout(layout_.split_right);
     split_rack_log_.layout(layout_.split_rack_log);
     split_top_piano_.layout(layout_.split_top_piano);
+    popup_.layout(r);
 }
 
 bool MainView::on_key(const KeyEvent& e) {

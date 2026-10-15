@@ -2,6 +2,7 @@
 // and the splitters between the panels. Also handles global shortcuts.
 #pragma once
 
+#include "app/browser_panel.h"
 #include "app/controller.h"
 #include "app/live_state.h"
 #include "app/log.h"
@@ -11,13 +12,16 @@
 #include "app/status_bar.h"
 #include "app/transport_bar.h"
 #include "ui/widget.h"
+#include "ui/widgets/popup_menu.h"
 #include "ui/widgets/splitter.h"
 
 namespace aloglas {
 
 class MainView : public Widget {
 public:
-    MainView(Controller& controller, const LiveState& live, Log& log);
+    // The browser and the popup live outside (main wires them to the loader
+    // and previewer); the view places them.
+    MainView(Controller& controller, const LiveState& live, Log& log, BrowserPanel& browser, PopupMenu& popup);
 
     // The sizes the user chose (saved in settings). The layout uses a
     // clamped copy, so a tiny or minimized window never overwrites them.
@@ -47,13 +51,14 @@ private:
     Panel log_{"LOG", focused_};
     Panel piano_{"PIANO ROLL", focused_};
     // Bodies of the panels that later steps fill in.
-    Widget browser_body_, playlist_body_, rack_body_, piano_body_;
+    Widget playlist_body_, rack_body_, piano_body_;
     LogPanel log_body_;
     StatusBar status_;
     Splitter split_browser_;
     Splitter split_right_;
     Splitter split_rack_log_;
     Splitter split_top_piano_;
+    PopupMenu& popup_;
 };
 
 }  // namespace aloglas
