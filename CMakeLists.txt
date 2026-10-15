@@ -37,21 +37,30 @@ if(ALOGLAS_RT_GUARD)
   target_compile_definitions(aloglas_core PRIVATE ALOGLAS_RT_GUARD)
 endif()
 
+# --- miniaudio (third-party implementation, shared by samples and audio) ---
+add_library(aloglas_miniaudio STATIC src/audio/miniaudio_impl.c)
+target_link_libraries(aloglas_miniaudio PUBLIC aloglas_miniaudio_headers)
+# Third-party code: compile without our warning flags.
+set_source_files_properties(src/audio/miniaudio_impl.c PROPERTIES COMPILE_OPTIONS "-w")
+
+# --- samples ---------------------------------------------------------------
+add_library(aloglas_samples STATIC
+  src/samples/sample.cpp)
+aloglas_project_target(aloglas_samples)
+target_link_libraries(aloglas_samples PUBLIC aloglas_core PRIVATE aloglas_miniaudio)
+
 # --- engine ----------------------------------------------------------------
 add_library(aloglas_engine STATIC
   src/engine/click.cpp
   src/engine/engine.cpp)
 aloglas_project_target(aloglas_engine)
-target_link_libraries(aloglas_engine PUBLIC aloglas_core)
+target_link_libraries(aloglas_engine PUBLIC aloglas_core aloglas_samples)
 
 # --- audio -----------------------------------------------------------------
 add_library(aloglas_audio STATIC
-  src/audio/audio_device.cpp
-  src/audio/miniaudio_impl.c)
+  src/audio/audio_device.cpp)
 aloglas_project_target(aloglas_audio)
-target_link_libraries(aloglas_audio PUBLIC aloglas_engine PRIVATE aloglas_miniaudio_headers)
-# Third-party code: compile without our warning flags.
-set_source_files_properties(src/audio/miniaudio_impl.c PROPERTIES COMPILE_OPTIONS "-w")
+target_link_libraries(aloglas_audio PUBLIC aloglas_engine PRIVATE aloglas_miniaudio)
 
 # --- ui --------------------------------------------------------------------
 add_library(aloglas_ui STATIC
@@ -129,9 +138,11 @@ add_executable(aloglas_tests
   tests/frame_update_test.cpp
   tests/transport_bar_test.cpp
   tests/main_view_test.cpp
-  tests/settings_test.cpp)
+  tests/settings_test.cpp
+  tests/sample_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
+target_compile_definitions(aloglas_tests PRIVATE ALOGLAS_TEST_DATA="${PROJECT_SOURCE_DIR}/tests/data")
 target_link_libraries(aloglas_tests PRIVATE aloglas_doctest aloglas_app_lib aloglas_core aloglas_engine aloglas_audio aloglas_ui)
 add_test(NAME aloglas_tests COMMAND aloglas_tests)
