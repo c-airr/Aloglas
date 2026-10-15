@@ -86,27 +86,27 @@ void transport(Canvas& c, const Theme& t, Rect r) {
     // menu
     box(c, t, {x, y, 24, h}, "");
     for (int i = -1; i <= 1; ++i) c.hline(x + 7, x + 17, cy + i * 3.5f, t.text);
-    x += 24 + 10;
+    x += 24 + t.group_gap;
 
     // play / stop
     box(c, t, {x, y, 28, h}, "", true);
-    c.fill_triangle({x + 11, cy - 5}, {x + 19, cy}, {x + 11, cy + 5}, t.accent_text);
+    c.fill_triangle({x + 11, cy - 4}, {x + 18, cy}, {x + 11, cy + 4}, t.accent_text);
     box(c, t, {x + 27, y, 28, h}, "");
-    c.fill_rect({x + 27 + 10, cy - 4, 8, 8}, t.text);
-    x += 55 + 10;
+    c.fill_rect({x + 27 + 10, cy - 3.5f, 7, 7}, t.text);
+    x += 55 + t.group_gap;
 
     // tempo + signature
-    field(c, t, {x, y, 58, h}, "", "140.00");
-    c.text({x + 62, y, 28, h}, "BPM", t.text_dim, t.font_size_small);
-    x += 92;
+    field(c, t, {x, y, 52, h}, "", "140.00");
+    c.text({x + 56, y, 24, h}, "BPM", t.text_dim, t.font_size_small);
+    x += 80;
     field(c, t, {x, y, 44, h}, "", "4 / 4", false);
-    x += 44 + 10;
+    x += 44 + t.group_gap;
 
     // modes and toggles
-    x = group(c, t, x, y, h, {{"LOOP", 46}, {"SONG", 46}}, 0) + 10;
+    x = group(c, t, x, y, h, {{"LOOP", 46}, {"SONG", 46}}, 0) + t.group_gap;
     x = group(c, t, x, y, h, {{"Metro", 46}}, 0);
     x = group(c, t, x - 1, y, h, {{"Brace", 46}}) ;
-    x = group(c, t, x - 1, y, h, {{"Follow", 50}}, 0) + 10;
+    x = group(c, t, x - 1, y, h, {{"Follow", 50}}, 0) + t.group_gap;
 
     // position
     c.fill_rect({x, y, 150, h}, t.field_bg);
@@ -187,8 +187,8 @@ void playlist(Canvas& c, const Theme& t, Rect r) {
         const Rect head{body.x, y, header_w, th};
         c.fill_rect(head, i == 1 ? t.track_header_selected : t.track_header);
         c.fill_rect({head.x, y, 3, th - 1}, t.sound_colors[static_cast<size_t>(i * 3)]);
-        c.text({head.x + 10, y + 3, head.w - 40, 16}, names[i], t.text, t.font_size);
-        box(c, t, {head.right() - 22, y + 4, 16, 14}, "M");
+        c.text({head.x + 10, y + 2, head.w - 40, 14}, names[i], t.text, t.font_size);
+        box(c, t, {head.right() - 20, y + 3, 14, 13}, "M");
         c.fill_rect({x0, y, body.right() - x0, th}, i % 2 ? t.lane_alt : t.lane);
         c.hline(body.x, body.right(), y + th - 1, t.panel_border);
     }
@@ -212,7 +212,7 @@ void playlist(Canvas& c, const Theme& t, Rect r) {
             if (rep > 0) c.vline(bx, cr.y + 12, cr.bottom() - 1, t.panel_border);
             for (int n = 0; n < 16; ++n) {
                 const int sound = n % 4;
-                c.fill_rect({bx + 3 + n * 14.0f, cr.y + 15 + sound * 5.0f, 9, 3},
+                c.fill_rect({bx + 3 + n * 14.0f, cr.y + 14 + sound * 4.0f, 9, 3},
                             t.sound_colors[static_cast<size_t>(sound * 3)]);
             }
         }
@@ -233,7 +233,7 @@ void channel_rack(Canvas& c, const Theme& t, Rect r) {
     const Ch rows[] = {{"Kick", true, 0, 0.8f, 0.5f},     {"Snare", true, 3, 0.7f, 0.5f},
                        {"Hat", true, 6, 0.6f, 0.62f},     {"Open Hat", false, 9, 0.55f, 0.4f},
                        {"808", true, 5, 0.85f, 0.5f},     {"Perc", false, 8, 0.5f, 0.7f}};
-    const float rh = 22;
+    const float rh = 20;
     float y = body.y;
     int i = 0;
     for (const Ch& ch : rows) {
@@ -264,39 +264,39 @@ void log_panel(Canvas& c, const Theme& t, Rect r) {
                           {"12:05:44", "Export failed: file is in use", 2}};
     float y = body.y + 2;
     for (const Line& l : lines) {
-        c.text({body.x + 8, y, 52, 16}, l.time, t.text_dim, t.font_size_small);
+        c.text({body.x + 8, y, 52, t.row_height}, l.time, t.text_dim, t.font_size_small);
         const Color col = l.level == 2 ? t.error : (l.level == 1 ? t.warning : t.text);
-        c.text({body.x + 60, y, body.w - 66, 16}, l.msg, col, t.font_size_small);
-        y += 16;
+        c.text({body.x + 60, y, body.w - 66, t.row_height}, l.msg, col, t.font_size_small);
+        y += t.row_height;
     }
 }
 
 void piano_roll(Canvas& c, const Theme& t, Rect r) {
     c.fill_rect(r, t.panel);
     Rect body = r;
-    const Rect head = cut_top(body, t.panel_header_height + 6);
+    const Rect head = cut_top(body, t.panel_header_height + 4);
     c.fill_rect(head, t.panel_header);
     c.hline(head.x, head.right(), head.bottom() - 1, t.panel_border);
     const float h = t.control_height;
     const float y = head.y + (head.h - h) / 2;
     float x = head.x + 6;
-    x = group(c, t, x, y, h, {{"Keys", 42}, {"Drums", 46}}, 0) + 8;
+    x = group(c, t, x, y, h, {{"Keys", 42}, {"Drums", 46}}, 0) + t.group_gap;
     // sound selector
     c.fill_rect({x, y, 96, h}, t.field_bg);
     c.stroke_rect({x, y, 96, h}, t.panel_border);
     c.fill_rect({x + 1, y + 1, 3, h - 2}, t.sound_colors[5]);
     c.text({x + 10, y, 60, h}, "808", t.text, t.font_size_small, Align::Left, true);
     tri_down(c, {x + 84, y + h / 2}, t.text_dim);
-    x += 96 + 8;
+    x += 96 + t.group_gap;
     field(c, t, {x, y, 66, h}, "Root", "C5");
     field(c, t, {x + 65, y, 56, h}, "Fine", "0");
-    x += 121 + 8;
+    x += 121 + t.group_gap;
     x = group(c, t, x, y, h, {{"Cut itself", 64}}, 0);
-    x = group(c, t, x - 1, y, h, {{"Gate", 40}}, 0) + 8;
+    x = group(c, t, x - 1, y, h, {{"Gate", 40}}, 0) + t.group_gap;
     field(c, t, {x, y, 86, h}, "Glide", "80 ms");
-    x += 86 + 8;
+    x += 86 + t.group_gap;
     field(c, t, {x, y, 82, h}, "Length", "Auto");
-    x += 82 + 8;
+    x += 82 + t.group_gap;
     box(c, t, {x, y, 46, h}, "Roll");
     // drag handle to the playlist
     const float gx = head.right() - 58;
@@ -307,7 +307,7 @@ void piano_roll(Canvas& c, const Theme& t, Rect r) {
     }
     c.text({gx + 18, y, 32, h}, "Loop", t.text, t.font_size_small, Align::Left, true);
 
-    const float vel_h = 44;
+    const float vel_h = 40;
     Rect vel = cut_bottom(body, vel_h);
     const Rect keys = cut_left(body, 48);
     const float row_h = 10;

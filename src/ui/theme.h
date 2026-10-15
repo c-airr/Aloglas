@@ -68,18 +68,19 @@ struct Theme {
 
     // Metrics in logical pixels
     // Dense, Ableton-like: controls touch inside groups, thin dividers.
-    float font_size = 12;
-    float font_size_small = 11;
-    float control_height = 20;      // buttons and fields in bars and headers
-    float row_height = 18;          // browser and log rows
-    float transport_height = 34;
-    float status_height = 20;
-    float panel_header_height = 20;
+    float font_size = 11;
+    float font_size_small = 10;
+    float control_height = 16;      // buttons and fields in bars and headers
+    float row_height = 17;          // browser and log rows
+    float transport_height = 28;
+    float status_height = 18;
+    float panel_header_height = 17;
     float header_width = 140;       // playlist track headers
     float loop_strip_height = 12;
-    float bar_numbers_height = 16;
-    float track_height = 40;
+    float bar_numbers_height = 14;
+    float track_height = 32;
     float splitter = 4;
+    float group_gap = 4;            // space between control groups
 };
 
 const Theme& theme();
