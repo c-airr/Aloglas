@@ -79,7 +79,9 @@ target_link_libraries(aloglas_ui
 # Everything of the app except main(), so tests can link it.
 add_library(aloglas_app_lib STATIC
   src/app/document.cpp
-  src/app/controller.cpp)
+  src/app/controller.cpp
+  src/app/log.cpp
+  src/app/log_panel.cpp)
 aloglas_project_target(aloglas_app_lib)
 target_link_libraries(aloglas_app_lib PUBLIC aloglas_ui aloglas_engine aloglas_audio aloglas_core)
 
@@ -110,7 +112,8 @@ add_executable(aloglas_tests
   tests/text_fit_test.cpp
   tests/widgets_test.cpp
   tests/engine_mode_test.cpp
-  tests/controller_test.cpp)
+  tests/controller_test.cpp
+  tests/log_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
