@@ -1,5 +1,6 @@
 #include "ui/window.h"
 
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -83,16 +84,67 @@ Window::Window(const WindowOptions& options) {
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
+    // Restore the last placement only if it is still on a connected display.
+    std::vector<Rect> displays;
+    int display_count = 0;
+    if (SDL_DisplayID* ids = SDL_GetDisplays(&display_count)) {
+        for (int i = 0; i < display_count; ++i) {
+            SDL_Rect b;
+            if (SDL_GetDisplayUsableBounds(ids[i], &b)) {
+                displays.push_back({float(b.x), float(b.y), float(b.w), float(b.h)});
+            }
+        }
+        SDL_free(ids);
+    }
+    bool maximized = options.maximized;
+    int x = SDL_WINDOWPOS_CENTERED;
+    int y = SDL_WINDOWPOS_CENTERED;
+    normal_ = {0, 0, options.width, options.height, options.maximized};
+    if (options.placement) {
+        const WindowPlacement& p = *options.placement;
+        normal_.w = p.w;
+        normal_.h = p.h;
+        maximized = p.maximized;
+        if (mostly_visible({float(p.x), float(p.y), float(p.w), float(p.h)}, displays)) {
+            x = p.x;
+            y = p.y;
+        }
+    }
+
     SDL_WindowFlags flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
     if (options.hidden) flags |= SDL_WINDOW_HIDDEN;
-    else if (options.maximized) flags |= SDL_WINDOW_MAXIMIZED;
+    else if (maximized) flags |= SDL_WINDOW_MAXIMIZED;
 
-    window_ = SDL_CreateWindow(options.title.c_str(), options.width, options.height, flags);
+    // Created at the normal rect and then maximized, so un-maximizing goes
+    // back to that rect.
+    const SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, options.title.c_str());
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_X_NUMBER, x);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, y);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, normal_.w);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, normal_.h);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_FLAGS_NUMBER, flags);
+    window_ = SDL_CreateWindowWithProperties(props);
+    SDL_DestroyProperties(props);
     if (!window_) {
         error_ = std::string("SDL_CreateWindow: ") + SDL_GetError();
         return;
     }
     SDL_SetWindowMinimumSize(window_, options.min_width, options.min_height);
+    if (maximized) {
+        // The real normal position is the centred one SDL chose (or the
+        // restored one); SDL reports the maximized rect now, so compute it.
+        if (x == SDL_WINDOWPOS_CENTERED && !displays.empty()) {
+            const Rect d = displays.front();
+            normal_.x = int(d.x + (d.w - normal_.w) / 2);
+            normal_.y = int(d.y + (d.h - normal_.h) / 2);
+        } else {
+            normal_.x = x;
+            normal_.y = y;
+        }
+    } else {
+        remember_normal_placement();
+    }
     use_dark_title_bar(SDL_GetPointerProperty(SDL_GetWindowProperties(window_),
                                               SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr));
 
@@ -168,6 +220,28 @@ std::string Window::clipboard_text() {
 
 void Window::set_clipboard_text(std::string_view text) {
     SDL_SetClipboardText(std::string(text).c_str());
+}
+
+bool mostly_visible(Rect window, const std::vector<Rect>& displays) {
+    for (const Rect& d : displays) {
+        const float w = std::min(window.right(), d.right()) - std::max(window.x, d.x);
+        const float h = std::min(window.bottom(), d.bottom()) - std::max(window.y, d.y);
+        if (w >= std::min(100.0f, window.w) && h >= std::min(50.0f, window.h)) return true;
+    }
+    return false;
+}
+
+void Window::remember_normal_placement() {
+    const SDL_WindowFlags f = SDL_GetWindowFlags(window_);
+    if (f & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_MINIMIZED | SDL_WINDOW_FULLSCREEN | SDL_WINDOW_HIDDEN)) return;
+    SDL_GetWindowPosition(window_, &normal_.x, &normal_.y);
+    SDL_GetWindowSize(window_, &normal_.w, &normal_.h);
+}
+
+WindowPlacement Window::placement() const {
+    WindowPlacement p = normal_;
+    p.maximized = window_ && (SDL_GetWindowFlags(window_) & SDL_WINDOW_MAXIMIZED);
+    return p;
 }
 
 void Window::set_cursor(Cursor c) {
@@ -255,7 +329,12 @@ void Window::handle(const SDL_Event& e, bool& running) {
         if (router_) router_->mouse_left_window();
         dirty_ = true;
         break;
+    case SDL_EVENT_WINDOW_MOVED:
+        remember_normal_placement();
+        break;
     case SDL_EVENT_WINDOW_RESIZED:
+        remember_normal_placement();
+        [[fallthrough]];
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
     case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
     case SDL_EVENT_WINDOW_EXPOSED:

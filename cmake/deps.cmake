@@ -29,7 +29,11 @@ FetchContent_Declare(doctest
   URL_HASH SHA256=cfd518a3ef90f67e1f3ba514df23fb3627437de1a2feeba78cf5062a40021421
   DOWNLOAD_NO_EXTRACT TRUE)
 
-FetchContent_MakeAvailable(SDL3 nanovg miniaudio doctest)
+FetchContent_Declare(json
+  URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp
+  URL_HASH SHA256=aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63
+  DOWNLOAD_NO_EXTRACT TRUE)
+FetchContent_MakeAvailable(SDL3 nanovg miniaudio doctest json)
 
 add_library(aloglas_nanovg STATIC ${nanovg_SOURCE_DIR}/src/nanovg.c)
 target_include_directories(aloglas_nanovg SYSTEM PUBLIC ${nanovg_SOURCE_DIR}/src)
@@ -39,6 +43,9 @@ target_include_directories(aloglas_glad SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/thir
 
 add_library(aloglas_miniaudio_headers INTERFACE)
 target_include_directories(aloglas_miniaudio_headers SYSTEM INTERFACE ${miniaudio_SOURCE_DIR})
+
+add_library(aloglas_json_headers INTERFACE)
+target_include_directories(aloglas_json_headers SYSTEM INTERFACE ${json_SOURCE_DIR})
 
 add_library(aloglas_doctest INTERFACE)
 target_include_directories(aloglas_doctest SYSTEM INTERFACE ${doctest_SOURCE_DIR})

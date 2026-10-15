@@ -5,7 +5,9 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "ui/event_router.h"
 #include "ui/widget.h"
@@ -18,6 +20,20 @@ struct NVGcontext;
 
 namespace aloglas {
 
+// Where the window is when it is not maximized (screen coordinates), and
+// whether it is maximized. Saved in settings between runs.
+struct WindowPlacement {
+    int x = 0;
+    int y = 0;
+    int w = 1280;
+    int h = 760;
+    bool maximized = true;
+};
+
+// True when enough of `window` lies on one of `displays` to grab and move it
+// (a saved position on a monitor that is now unplugged is not).
+bool mostly_visible(Rect window, const std::vector<Rect>& displays);
+
 struct WindowOptions {
     std::string title = "Aloglas";
     int width = 1280;        // size when not maximized
@@ -26,6 +42,9 @@ struct WindowOptions {
     int min_height = 600;
     bool maximized = true;   // first start: fill the screen (normal window, not fullscreen)
     bool hidden = false;     // offscreen rendering (screenshots)
+    // Last run's placement; replaces width/height/maximized. Ignored when it
+    // is not on any current display (the window is then centred).
+    std::optional<WindowPlacement> placement;
 };
 
 class Window final : public UiHost {
@@ -45,6 +64,10 @@ public:
     // the transport plays). When nothing changes the loop sleeps in
     // SDL_WaitEvent and uses no CPU.
     void run(const std::function<bool()>& before_frame);
+
+    // The non-maximized position and size (even while maximized), plus
+    // whether the window is maximized now.
+    WindowPlacement placement() const;
 
     // Renders one frame of the root into an offscreen buffer at scale 1 and
     // saves it as PNG. Works with a hidden window.
@@ -66,6 +89,7 @@ private:
     void draw_root(float width, float height, float pixel_ratio);
     float to_logical() const;  // window coordinates -> logical pixels factor
     float ui_scale() const;    // logical pixels -> framebuffer pixels
+    void remember_normal_placement();
 
     SDL_Window* window_ = nullptr;
     SDL_GLContextState* gl_ = nullptr;
@@ -76,6 +100,7 @@ private:
     Widget* root_ = nullptr;
     std::unique_ptr<EventRouter> router_;
     bool dirty_ = true;
+    WindowPlacement normal_;  // last non-maximized, non-minimized position and size
     bool ok_ = false;
     std::string error_;
 };

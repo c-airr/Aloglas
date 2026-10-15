@@ -15,6 +15,7 @@
 #include "app/live_state.h"
 #include "app/log.h"
 #include "app/main_view.h"
+#include "app/settings.h"
 #include "audio/audio_device.h"
 #include "engine/engine.h"
 #include "ui/theme.h"
@@ -38,8 +39,13 @@ int main(int argc, char** argv) {
     std::unique_ptr<AudioDevice> device;
     if (!no_audio && !offscreen) device = std::make_unique<AudioDevice>(engine);
 
+    // Screenshots ignore the user's settings so they always look the same.
+    SettingsLoad settings;
+    if (!offscreen) settings = load_settings(settings_path());
+
     WindowOptions options;
     options.hidden = offscreen;
+    options.placement = settings.settings.window;
     Window window(options);
     if (!window.ok()) {
         SDL_Log("Aloglas: %s", window.error().c_str());
@@ -68,7 +74,9 @@ int main(int argc, char** argv) {
 
     LiveState live;
     MainView view(controller, live, log);
+    view.sizes() = settings.settings.panels;
     window.set_root(view);
+    if (!settings.warning.empty()) log.add(LogLevel::Warning, settings.warning);
 
     controller.sync_engine();
     engine.pump();
@@ -99,5 +107,10 @@ int main(int argc, char** argv) {
         return needs_frames(live);
     });
     if (device) device->close();
+
+    std::string error;
+    if (!save_settings(settings_path(), {window.placement(), view.sizes()}, &error)) {
+        SDL_Log("Aloglas: settings not saved: %s", error.c_str());  // the log panel is gone by now
+    }
     return 0;
 }
