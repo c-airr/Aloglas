@@ -45,7 +45,7 @@ TEST_CASE("splitter drags with sign and resets on double-click") {
     Widget root;
     root.rect = {0, 0, 1000, 500};
     float value = 220;
-    Splitter split(SplitAxis::Columns, [&] { return value; }, [&](float v) { value = v; }, +1, 220);
+    Splitter split(SplitAxis::Columns, [&] { return value; }, [&](float v) { value = v; }, +1, [&] { value = 220; });
     root.add(split);
     split.layout({218, 0, 4, 500});
     EventRouter router(root);
@@ -62,7 +62,7 @@ TEST_CASE("splitter drags with sign and resets on double-click") {
     click(router, {220, 100}, {}, 2);
     CHECK(value == 220);
 
-    Splitter rows(SplitAxis::Rows, [&] { return value; }, [&](float v) { value = v; }, -1, 300);
+    Splitter rows(SplitAxis::Rows, [&] { return value; }, [&](float v) { value = v; }, -1, nullptr);
     root.add(rows);
     rows.layout({0, 398, 1000, 4});
     drag(router, {500, 400}, {700, 350});  // up 50 px with sign -1 → +50

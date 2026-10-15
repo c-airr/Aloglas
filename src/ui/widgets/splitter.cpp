@@ -3,13 +3,17 @@
 namespace aloglas {
 
 Splitter::Splitter(SplitAxis axis, std::function<float()> value, std::function<void(float)> set_value, float sign,
-                   float default_value)
-    : axis_(axis), value_(std::move(value)), set_value_(std::move(set_value)), sign_(sign), default_(default_value) {}
+                   std::function<void()> on_reset)
+    : axis_(axis),
+      value_(std::move(value)),
+      set_value_(std::move(set_value)),
+      sign_(sign),
+      on_reset_(std::move(on_reset)) {}
 
 bool Splitter::on_mouse_down(const MouseEvent& e) {
     if (e.button != MouseButton::Left) return false;
     if (e.clicks == 2) {
-        set_value_(default_);
+        if (on_reset_) on_reset_();
         dragging_ = false;
         invalidate();
         return true;

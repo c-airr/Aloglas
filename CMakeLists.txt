@@ -87,13 +87,14 @@ add_library(aloglas_app_lib STATIC
   src/app/main_layout.cpp
   src/app/frame_update.cpp
   src/app/status_bar.cpp
-  src/app/transport_bar.cpp)
+  src/app/transport_bar.cpp
+  src/app/panel.cpp
+  src/app/main_view.cpp)
 aloglas_project_target(aloglas_app_lib)
 target_link_libraries(aloglas_app_lib PUBLIC aloglas_ui aloglas_engine aloglas_audio aloglas_core)
 
 add_executable(aloglas
-  src/app/main.cpp
-  src/app/demo/palette_preview.cpp)
+  src/app/main.cpp)
 aloglas_project_target(aloglas)
 aloglas_static_exe(aloglas)
 target_link_libraries(aloglas PRIVATE aloglas_app_lib aloglas_ui SDL3::SDL3-static)
@@ -123,7 +124,8 @@ add_executable(aloglas_tests
   tests/splitter_test.cpp
   tests/main_layout_test.cpp
   tests/frame_update_test.cpp
-  tests/transport_bar_test.cpp)
+  tests/transport_bar_test.cpp
+  tests/main_view_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
