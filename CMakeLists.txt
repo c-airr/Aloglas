@@ -76,12 +76,19 @@ target_link_libraries(aloglas_ui
   PRIVATE SDL3::SDL3-static aloglas_glad aloglas_nanovg dwmapi)
 
 # --- app -------------------------------------------------------------------
+# Everything of the app except main(), so tests can link it.
+add_library(aloglas_app_lib STATIC
+  src/app/document.cpp
+  src/app/controller.cpp)
+aloglas_project_target(aloglas_app_lib)
+target_link_libraries(aloglas_app_lib PUBLIC aloglas_ui aloglas_engine aloglas_audio aloglas_core)
+
 add_executable(aloglas
   src/app/main.cpp
   src/app/demo/palette_preview.cpp)
 aloglas_project_target(aloglas)
 aloglas_static_exe(aloglas)
-target_link_libraries(aloglas PRIVATE aloglas_ui SDL3::SDL3-static)
+target_link_libraries(aloglas PRIVATE aloglas_app_lib aloglas_ui SDL3::SDL3-static)
 
 # --- tests -----------------------------------------------------------------
 enable_testing()
@@ -102,9 +109,10 @@ add_executable(aloglas_tests
   tests/number_format_test.cpp
   tests/text_fit_test.cpp
   tests/widgets_test.cpp
-  tests/engine_mode_test.cpp)
+  tests/engine_mode_test.cpp
+  tests/controller_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)
-target_link_libraries(aloglas_tests PRIVATE aloglas_doctest aloglas_core aloglas_engine aloglas_audio aloglas_ui)
+target_link_libraries(aloglas_tests PRIVATE aloglas_doctest aloglas_app_lib aloglas_core aloglas_engine aloglas_audio aloglas_ui)
 add_test(NAME aloglas_tests COMMAND aloglas_tests)
