@@ -116,3 +116,24 @@ TEST_CASE("meters decay to zero") {
     CHECK(live.meter_left == 0.0f);
     CHECK_FALSE(needs_frames(live));
 }
+
+// Final review: a mouse click on Play queues the command, but the audio thread
+// hadn't applied it when the frame loop asked "anything moving?", so the loop
+// went to sleep and the screen froze until the next input event.
+TEST_CASE("frames keep coming while commands wait for the audio thread") {
+    Engine e;
+    Document d;
+    Controller c(d, e);
+    Log log;
+    LiveState live;
+    AudioDevice dev(e, {.null_backend = true});
+    REQUIRE(dev.open());
+    dev.debug_stop_stream();  // status stays Running, but nothing renders
+    frame_update(e, &dev, c, log, live);
+    CHECK_FALSE(needs_frames(live));
+    c.play();
+    frame_update(e, &dev, c, log, live);
+    CHECK_FALSE(live.playing);
+    CHECK(needs_frames(live));
+    dev.close();
+}

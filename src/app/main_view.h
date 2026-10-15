@@ -36,6 +36,7 @@ private:
     Controller& controller_;
     const LiveState& live_;
     PanelSizes sizes_;
+    PanelSizes shown_;  // sizes_ clamped to the current window: what the splitters drag from
     MainLayout layout_;
     Panel* focused_ = nullptr;
 

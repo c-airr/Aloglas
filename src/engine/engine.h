@@ -52,6 +52,8 @@ public:
     uint32_t dropped_commands() const { return dropped_.load(std::memory_order_relaxed); }
     int64_t frames_rendered() const { return pub_frames_.load(std::memory_order_relaxed); }
     PlayMode play_mode() const { return pub_play_mode_.load(std::memory_order_relaxed); }
+    // UI thread: commands sent but not yet applied by render().
+    bool commands_pending() const { return !queue_.drained(); }
 
     // Highest absolute sample per channel since the last call (for the
     // master meter); resets both to 0.
@@ -112,6 +114,8 @@ private:
     // thread must never take. On x86-64 these are plain loads and stores.
     static_assert(std::atomic<double>::is_always_lock_free);
     static_assert(std::atomic<int64_t>::is_always_lock_free);
+    static_assert(std::atomic<float>::is_always_lock_free);
+    static_assert(std::atomic<PlayMode>::is_always_lock_free);
 };
 
 }  // namespace aloglas

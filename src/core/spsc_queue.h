@@ -39,6 +39,12 @@ public:
         return true;
     }
 
+    // Producer thread only: true when the consumer has taken everything
+    // pushed so far.
+    bool drained() const {
+        return tail_.load(std::memory_order_acquire) == head_.load(std::memory_order_relaxed);
+    }
+
     // Consumer thread only. Returns false when the queue is empty.
     bool pop(T& out) {
         const std::size_t tail = tail_.load(std::memory_order_relaxed);  // we own tail

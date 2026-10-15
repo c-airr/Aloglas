@@ -15,6 +15,7 @@ void frame_update(Engine& engine, AudioDevice* device, Controller& controller, L
     if (!device || device->status() != AudioStatus::Running) engine.pump();
 
     live.playing = engine.playing();
+    live.commands_pending = engine.commands_pending();
     live.position_ticks = engine.position_ticks();
     live.audio_disabled = device == nullptr;
     live.audio = device ? device->status() : AudioStatus::Closed;
@@ -40,7 +41,9 @@ void frame_update(Engine& engine, AudioDevice* device, Controller& controller, L
 }
 
 bool needs_frames(const LiveState& live) {
-    return live.playing || live.meter_left > 0.0f || live.meter_right > 0.0f;
+    // Pending commands: Play was clicked but the audio thread hasn't started
+    // yet; keep drawing so the change shows up without waiting for input.
+    return live.playing || live.commands_pending || live.meter_left > 0.0f || live.meter_right > 0.0f;
 }
 
 std::string status_text(const LiveState& live) {

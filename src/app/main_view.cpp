@@ -24,22 +24,22 @@ MainView::MainView(Controller& controller, const LiveState& live, Log& log)
       log_body_(log),
       status_(live),
       split_browser_(
-          SplitAxis::Columns, [this] { return sizes_.browser_width; },
+          SplitAxis::Columns, [this] { return shown_.browser_width; },
           [this](float v) { resize([](PanelSizes& s, float x) { s.browser_width = x; }, v); }, +1,
           [this] { resize([](PanelSizes& s, float) { s.browser_width = PanelSizes{}.browser_width; }, 0); }),
       split_right_(
-          SplitAxis::Columns, [this] { return sizes_.right_width; },
+          SplitAxis::Columns, [this] { return shown_.right_width; },
           [this](float v) { resize([](PanelSizes& s, float x) { s.right_width = x; }, v); }, -1,
           [this] { resize([](PanelSizes& s, float) { s.right_width = PanelSizes{}.right_width; }, 0); }),
       // The two row splitters drag in pixels but store shares of a height.
       split_rack_log_(
-          SplitAxis::Rows, [this] { return sizes_.rack_share * right_column_height(layout_); },
+          SplitAxis::Rows, [this] { return shown_.rack_share * right_column_height(layout_); },
           [this](float v) {
               resize([](PanelSizes& s, float x) { s.rack_share = x; }, share(v, right_column_height(layout_)));
           },
           +1, [this] { resize([](PanelSizes& s, float) { s.rack_share = PanelSizes{}.rack_share; }, 0); }),
       split_top_piano_(
-          SplitAxis::Rows, [this] { return sizes_.piano_share * below_transport_height(layout_); },
+          SplitAxis::Rows, [this] { return shown_.piano_share * below_transport_height(layout_); },
           [this](float v) {
               resize([](PanelSizes& s, float x) { s.piano_share = x; }, share(v, below_transport_height(layout_)));
           },
@@ -74,7 +74,8 @@ void MainView::resize(void (*apply)(PanelSizes&, float), float v) {
 
 void MainView::layout(Rect r) {
     rect = r;
-    layout_ = compute_layout(r, clamp_sizes(sizes_, r, theme()), theme());
+    shown_ = clamp_sizes(sizes_, r, theme());
+    layout_ = compute_layout(r, shown_, theme());
     transport_.layout(layout_.transport);
     browser_.layout(layout_.browser);
     playlist_.layout(layout_.playlist);

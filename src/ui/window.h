@@ -34,6 +34,10 @@ struct WindowPlacement {
 // (a saved position on a monitor that is now unplugged is not).
 bool mostly_visible(Rect window, const std::vector<Rect>& displays);
 
+// Shrinks the size (not the position) so the window fits on `display` with
+// room for its title bar.
+WindowPlacement fit_to_display(WindowPlacement p, Rect display);
+
 struct WindowOptions {
     std::string title = "Aloglas";
     int width = 1280;        // size when not maximized

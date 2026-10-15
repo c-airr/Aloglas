@@ -23,6 +23,8 @@ public:
     void draw(Canvas&) override {}  // the 1-px gap between the panels is the visible line
     bool on_mouse_down(const MouseEvent& e) override;
     void on_mouse_move(const MouseEvent& e) override;
+    // Without this the router's hover moves would keep dragging after release.
+    void on_mouse_up(const MouseEvent&) override { dragging_ = false; }
     void on_hover_enter() override;
     void on_hover_leave() override;
 

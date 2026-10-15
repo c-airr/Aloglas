@@ -96,6 +96,18 @@ TEST_CASE("splitter drag clamps and double-click resets") {
     CHECK(f.view.sizes().rack_share == doctest::Approx(0.6f));
 }
 
+// Final review: the splitter read the stored size while the layout showed a
+// clamped one, so it did nothing until the mouse had covered the difference.
+TEST_CASE("splitter follows the mouse when the saved size does not fit") {
+    Fixture f;
+    f.view.sizes().right_width = 900;  // saved on a wider monitor; only 819 fits
+    f.view.layout({0, 0, 1280, 760});
+    const float rack_x = f.view.main_layout().rack.x;
+    const Point p = center(f.view.main_layout().split_right);
+    drag(f.router, p, {p.x + 40, p.y});
+    CHECK(f.view.main_layout().rack.x == doctest::Approx(rack_x + 40));
+}
+
 TEST_CASE("MainView layout survives tiny sizes") {
     Fixture f;
     for (Rect r : {Rect{0, 0, 0, 0}, Rect{0, 0, 120, 60}, Rect{0, 0, 1280, 760}}) {

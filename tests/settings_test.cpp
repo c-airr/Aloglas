@@ -104,4 +104,16 @@ TEST_CASE("a saved window position must still be on a display") {
     CHECK_FALSE(mostly_visible({100, -2000, 1280, 760}, displays));
     CHECK_FALSE(mostly_visible({1900, 1060, 1280, 760}, displays));  // only a corner peeks out
     CHECK_FALSE(mostly_visible({100, 100, 1280, 760}, {}));
+    CHECK_FALSE(mostly_visible({100, -700, 1280, 760}, displays));  // bottom visible, title bar above the screen
+}
+
+TEST_CASE("a window bigger than the display is shrunk to fit") {
+    const Rect display{0, 0, 1920, 1040};
+    const WindowPlacement big = fit_to_display({0, 0, 2000, 1200, false}, display);
+    CHECK(big.w <= 1920);
+    CHECK(big.h <= 1040 - 40);  // room for the title bar
+    const WindowPlacement small = fit_to_display({5, 6, 1100, 700, true}, display);
+    CHECK(small.w == 1100);
+    CHECK(small.h == 700);
+    CHECK(small.maximized);
 }

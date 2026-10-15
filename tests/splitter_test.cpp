@@ -75,3 +75,22 @@ TEST_CASE("meter_fraction maps dB") {
     CHECK(meter_fraction(4.0f) == 1.0f);  // +12 dB clamps
     CHECK(meter_fraction(0.0005f) == 0.0f);  // below -60 dB
 }
+
+// Final review: dragging_ was never cleared, so moving the mouse across the
+// divider after a drag kept resizing with no button held.
+TEST_CASE("splitter stops following the mouse after release") {
+    Widget root;
+    root.rect = {0, 0, 1000, 500};
+    float value = 220;
+    Splitter split(SplitAxis::Columns, [&] { return value; }, [&](float v) { value = v; }, +1, nullptr);
+    root.add(split);
+    split.layout({218, 0, 4, 500});
+    EventRouter router(root);
+    FakeHost host(router);
+    root.set_host(&host);
+
+    drag(router, {220, 100}, {221, 100});
+    CHECK(value == 221);
+    router.mouse_move({{219, 100}});  // hovering, no button held
+    CHECK(value == 221);
+}

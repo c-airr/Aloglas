@@ -108,6 +108,11 @@ Window::Window(const WindowOptions& options) {
         if (mostly_visible({float(p.x), float(p.y), float(p.w), float(p.h)}, displays)) {
             x = p.x;
             y = p.y;
+        } else if (!displays.empty()) {
+            // Its monitor is gone: centre it on the main one, at a size that fits.
+            const WindowPlacement fitted = fit_to_display(p, displays.front());
+            normal_.w = fitted.w;
+            normal_.h = fitted.h;
         }
     }
 
@@ -223,12 +228,21 @@ void Window::set_clipboard_text(std::string_view text) {
 }
 
 bool mostly_visible(Rect window, const std::vector<Rect>& displays) {
+    // The title bar must be reachable, or the window can't be moved back. SDL
+    // positions are the client area's; the title bar sits ~30 px above it.
+    const Rect title{window.x, window.y - 30, window.w, 50};
     for (const Rect& d : displays) {
-        const float w = std::min(window.right(), d.right()) - std::max(window.x, d.x);
-        const float h = std::min(window.bottom(), d.bottom()) - std::max(window.y, d.y);
-        if (w >= std::min(100.0f, window.w) && h >= std::min(50.0f, window.h)) return true;
+        const float w = std::min(title.right(), d.right()) - std::max(title.x, d.x);
+        const float h = std::min(title.bottom(), d.bottom()) - std::max(title.y, d.y);
+        if (w >= std::min(100.0f, window.w) && h >= title.h) return true;
     }
     return false;
+}
+
+WindowPlacement fit_to_display(WindowPlacement p, Rect display) {
+    p.w = std::min(p.w, static_cast<int>(display.w));
+    p.h = std::min(p.h, static_cast<int>(display.h) - 40);  // title bar
+    return p;
 }
 
 void Window::remember_normal_placement() {

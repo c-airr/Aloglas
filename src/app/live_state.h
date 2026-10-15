@@ -20,6 +20,7 @@ struct LiveState {
     uint32_t sample_rate = 0;
     uint32_t buffer_frames = 0;
     uint32_t dropped_commands = 0;
+    bool commands_pending = false;  // the audio thread hasn't applied them yet
     float meter_left = 0;  // linear peak with a falling decay
     float meter_right = 0;
 };
