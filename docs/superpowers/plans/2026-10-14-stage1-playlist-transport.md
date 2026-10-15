@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-13-stage1-playlist-transport-design.md`
 
-> **Status 2026-10-14:** the spec was expanded into a full beat-making stage (browser, sampler, channel rack, piano roll, clips, project file, export). **Tasks 1–11 (foundation) stay valid and are being executed.** Two adjustments follow the expanded spec: Task 10's window starts maximized with a dark title bar and a 960×600 minimum, and Task 5's command set will be extended in the next plan rather than now. **Tasks 12–17 are superseded** and will be replaced by a new plan written after the author reviews the expanded spec.
+> **Status 2026-10-14:** the spec was expanded into a full beat-making stage (browser, sampler, channel rack, piano roll, clips, project file, export). **Tasks 1–11 (foundation) stay valid and are being executed.** Two adjustments follow the expanded spec: Task 10's window starts maximized with a dark title bar and a 960×600 minimum, and Task 5's command set will be extended in the next plan rather than now. **Tasks 12–17 are superseded:** 12–14 by `2026-10-15-stage1-step2-layout-transport.md`, 15–17 move to the playlist step.
 
 ## Global Constraints
 
