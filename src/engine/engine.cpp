@@ -21,9 +21,14 @@ void Engine::prepare(double sample_rate) {
 Engine::~Engine() {
     // No audio thread runs now, so this (UI) thread may act as the consumer.
     Command c;
-    while (queue_.pop(c)) delete c.preview;
+    while (queue_.pop(c)) {
+        delete c.preview;
+        delete c.snapshot;
+    }
     delete current_.payload;
     delete fading_.payload;
+    delete snapshot_;
+    for (std::size_t i = 0; i < retired_snapshot_count_; ++i) delete retired_snapshots_[i].snapshot;
     for (std::size_t i = 0; i < garbage_retry_count_; ++i) garbage_retry_[i].destroy(garbage_retry_[i].object);
     collect_garbage();
 }
@@ -36,6 +41,9 @@ void Engine::pump() {
         retire(slot->payload);
         slot->payload = nullptr;
     }
+    for (SoundRuntime& sound : sounds_) sound.sampler.stop_all();
+    for (std::size_t i = 0; i < retired_snapshot_count_; ++i) retire_snapshot(retired_snapshots_[i].snapshot);
+    retired_snapshot_count_ = 0;
     pub_previewing_.store(false, std::memory_order_relaxed);
 }
 
@@ -48,6 +56,7 @@ bool Engine::send(const Command& command) {
     if (queue_.push(command)) return true;
     // The engine never saw this payload, so it is still ours to free.
     delete command.preview;
+    delete command.snapshot;
     dropped_.fetch_add(1, std::memory_order_relaxed);
     // A full queue means the audio thread has not run for a long time (or the
     // UI floods it). Debug builds stop here so the cause gets investigated.
@@ -64,6 +73,113 @@ int64_t Engine::origin() const {
     return start_marker_;
 }
 
+const SnapshotSound* Engine::find_sound(uint64_t id) const {
+    if (!snapshot_) return nullptr;
+    for (const SnapshotSound& sound : snapshot_->sounds) if (sound.id == id) return &sound;
+    return nullptr;
+}
+
+Engine::SoundRuntime* Engine::runtime(uint64_t id) {
+    for (SoundRuntime& sound : sounds_) if (sound.id == id) return &sound;
+    for (SoundRuntime& sound : sounds_) {
+        if (!sound.sampler.active()) {
+            sound.id = id;
+            return &sound;
+        }
+    }
+    // There are at most 64 current sounds and room for 128 runtime slots.
+    // This fallback only matters if a project replaces channels repeatedly
+    // while old voices are still in their 5 ms retirement fade.
+    SoundRuntime& sound = sounds_[0];
+    sound.sampler.stop_all();
+    sound.id = id;
+    return &sound;
+}
+
+std::size_t Engine::event_cursor_for(double tick) const {
+    if (!snapshot_) return 0;
+    std::size_t lo = 0, hi = snapshot_->loop_events.size();
+    while (lo < hi) {
+        const std::size_t mid = lo + (hi - lo) / 2;
+        if (static_cast<double>(snapshot_->loop_events[mid].start_tick) < tick) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo;
+}
+
+void Engine::retire_snapshot(Snapshot* snapshot) {
+    if (!snapshot) return;
+    const Garbage g = make_garbage(snapshot);
+    if (garbage_.push(g)) return;
+    if (garbage_retry_count_ < garbage_retry_.size()) {
+        garbage_retry_[garbage_retry_count_++] = g;
+        return;
+    }
+    leaked_.fetch_add(1, std::memory_order_relaxed);
+    assert(!"snapshot garbage queue overflow");
+}
+
+void Engine::set_snapshot(Snapshot* next) {
+    if (next == snapshot_) return;
+    Snapshot* previous = snapshot_;
+    const uint64_t previous_generation = snapshot_generation_;
+    snapshot_ = next;
+    ++snapshot_generation_;
+
+    // Voices keep raw sample pointers. Retag a voice when the new snapshot
+    // owns that same sample, and fade voices whose sample is being removed or
+    // replaced; this lets the old snapshot stay alive only as long as needed.
+    if (previous) {
+        for (SoundRuntime& state : sounds_) {
+            if (!state.sampler.generation_active(previous_generation)) continue;
+            const SnapshotSound* replacement = find_sound(state.id);
+            if (replacement) state.sampler.retag_generation(previous_generation, snapshot_generation_, replacement->sample.get());
+            state.sampler.fade_generation(previous_generation, sample_rate_);
+        }
+
+        if (retired_snapshot_count_ == retired_snapshots_.size()) {
+            const uint64_t oldest = retired_snapshots_[0].generation;
+            for (SoundRuntime& state : sounds_) state.sampler.stop_generation(oldest);
+            retire_snapshot(retired_snapshots_[0].snapshot);
+            for (std::size_t i = 1; i < retired_snapshot_count_; ++i) retired_snapshots_[i - 1] = retired_snapshots_[i];
+            --retired_snapshot_count_;
+        }
+
+        bool still_used = false;
+        for (const SoundRuntime& state : sounds_) still_used |= state.sampler.generation_active(previous_generation);
+        if (still_used) retired_snapshots_[retired_snapshot_count_++] = {previous, previous_generation};
+        else retire_snapshot(previous);
+    }
+
+    if (snapshot_) {
+        for (const SnapshotSound& sound : snapshot_->sounds) {
+            SoundRuntime* state = runtime(sound.id);
+            state->gain = sound.gain;
+            state->pan_left = sound.pan_left;
+            state->pan_right = sound.pan_right;
+            state->audible = sound.audible;
+        }
+        if (snapshot_->loop_length_ticks > 0) loop_length_ = snapshot_->loop_length_ticks;
+    }
+    event_cursor_ = event_cursor_for(pos_);
+}
+
+void Engine::collect_retired_snapshots() {
+    std::size_t i = 0;
+    while (i < retired_snapshot_count_) {
+        const uint64_t generation = retired_snapshots_[i].generation;
+        bool active = false;
+        for (const SoundRuntime& state : sounds_) active |= state.sampler.generation_active(generation);
+        if (active) {
+            ++i;
+            continue;
+        }
+        retire_snapshot(retired_snapshots_[i].snapshot);
+        for (std::size_t j = i + 1; j < retired_snapshot_count_; ++j) retired_snapshots_[j - 1] = retired_snapshots_[j];
+        --retired_snapshot_count_;
+    }
+}
+
 void Engine::apply(const Command& c) {
     switch (c.type) {
     case CommandType::Play:
@@ -71,16 +187,20 @@ void Engine::apply(const Command& c) {
             playing_ = true;
             pos_ = static_cast<double>(origin());
             next_beat_ = first_beat_at_or_after(pos_, sig_);
+            event_cursor_ = event_cursor_for(pos_);
         }
         break;
     case CommandType::Stop:
         playing_ = false;
         click_.stop();
+        for (SoundRuntime& sound : sounds_) sound.sampler.fade_all(sample_rate_);
         pos_ = static_cast<double>(origin());
+        event_cursor_ = event_cursor_for(pos_);
         break;
     case CommandType::Seek:
         pos_ = static_cast<double>(c.a);
         next_beat_ = first_beat_at_or_after(pos_, sig_);
+        event_cursor_ = event_cursor_for(pos_);
         break;
     case CommandType::SetTempo:
         // The UI validates too, but here a bad value is fatal (NaN playhead,
@@ -106,6 +226,7 @@ void Engine::apply(const Command& c) {
         loop_start_ = c.a;
         loop_end_ = c.b;
         if (!playing_) pos_ = static_cast<double>(origin());
+        event_cursor_ = event_cursor_for(pos_);
         break;
     case CommandType::SetStart:
         start_marker_ = c.a;
@@ -118,6 +239,7 @@ void Engine::apply(const Command& c) {
         // Playing or not, continue from the new mode's origin.
         pos_ = static_cast<double>(origin());
         next_beat_ = first_beat_at_or_after(pos_, sig_);
+        event_cursor_ = event_cursor_for(pos_);
         break;
     }
     case CommandType::SetLoopLength:
@@ -129,6 +251,18 @@ void Engine::apply(const Command& c) {
     case CommandType::StopPreview:
         start_preview(nullptr);
         break;
+    case CommandType::SetSnapshot:
+        set_snapshot(c.snapshot);
+        break;
+    case CommandType::PreviewNote: {
+        if (c.a <= 0 || c.b < 0 || c.b > 127 || !std::isfinite(c.number)) break;
+        const SnapshotSound* sound = find_sound(static_cast<uint64_t>(c.a));
+        if (!sound || !sound->sample) break;
+        runtime(sound->id)->sampler.note_on(*sound, snapshot_generation_, static_cast<int>(c.b),
+                                           static_cast<float>(std::clamp(c.number, 0.0, 1.0)), -1, false,
+                                           sample_rate_);
+        break;
+    }
     }
 }
 
@@ -196,7 +330,19 @@ void Engine::render(float* out, uint32_t frames) {
     // jump) is checked against the playhead of this exact sample, so the
     // result does not depend on how the audio device splits time into buffers.
     for (uint32_t i = 0; i < frames; ++i) {
+        const double frame_tick = pos_;
         if (playing_) {
+            if (play_mode_ == PlayMode::Loop && snapshot_) {
+                while (event_cursor_ < snapshot_->loop_events.size() &&
+                       static_cast<double>(snapshot_->loop_events[event_cursor_].start_tick) <= pos_) {
+                    const NoteEvent& event = snapshot_->loop_events[event_cursor_++];
+                    const SnapshotSound* sound = find_sound(event.sound_id);
+                    if (!sound || !sound->sample || event.pitch < 0 || event.pitch > 127) continue;
+                    runtime(sound->id)->sampler.note_on(*sound, snapshot_generation_, event.pitch,
+                                                         event.velocity, event.end_tick, event.slide,
+                                                         sample_rate_);
+                }
+            }
             if (pos_ >= static_cast<double>(next_beat_)) {
                 if (metronome_) {
                     const bool accent = next_beat_ % bar_len == 0;
@@ -215,6 +361,7 @@ void Engine::render(float* out, uint32_t frames) {
                     // A beat crossed during this sample (tick 0 on a normal
                     // wrap) must still click, on the next sample.
                     next_beat_ = first_beat_at_or_after(pos_ - ticks_per_sample_, sig_);
+                    event_cursor_ = event_cursor_for(0.0);
                 }
             } else if (loop_enabled_ && loop_end_ > loop_start_ && before < static_cast<double>(loop_end_) &&
                        pos_ >= static_cast<double>(loop_end_)) {
@@ -224,14 +371,26 @@ void Engine::render(float* out, uint32_t frames) {
                 pos_ = static_cast<double>(loop_start_) + (pos_ - static_cast<double>(loop_end_));
                 // A beat sitting on the loop start must click on the next sample.
                 next_beat_ = first_beat_at_or_after(static_cast<double>(loop_start_), sig_);
+                event_cursor_ = event_cursor_for(pos_);
             }
         }
         const float s = click_.next();
         float pl = 0, pr = 0, fl = 0, fr = 0;
         current_.voice.render_frame(pl, pr);
         fading_.voice.render_frame(fl, fr);
-        out[2 * i] = s + pl + fl;
-        out[2 * i + 1] = s + pr + fr;
+        float left = s + pl + fl;
+        float right = s + pr + fr;
+        for (SoundRuntime& sound : sounds_) {
+            if (!sound.sampler.active()) continue;
+            float sl = 0, sr = 0;
+            sound.sampler.render_frame(frame_tick, sample_rate_, sl, sr);
+            if (sound.audible) {
+                left += sl * sound.gain * sound.pan_left;
+                right += sr * sound.gain * sound.pan_right;
+            }
+        }
+        out[2 * i] = left;
+        out[2 * i + 1] = right;
         // A voice that just ended hands its payload back.
         if (current_.payload && !current_.voice.active()) {
             retire(current_.payload);
@@ -243,6 +402,8 @@ void Engine::render(float* out, uint32_t frames) {
         }
         ++frame_;
     }
+
+    collect_retired_snapshots();
 
     float peak_l = 0.0f;
     float peak_r = 0.0f;
@@ -261,7 +422,9 @@ void Engine::render(float* out, uint32_t frames) {
     pub_position_.store(pos_, std::memory_order_relaxed);
     pub_frames_.store(frame_, std::memory_order_relaxed);
     pub_play_mode_.store(play_mode_, std::memory_order_relaxed);
-    pub_previewing_.store(current_.voice.active() || fading_.voice.active(), std::memory_order_relaxed);
+    bool any_sample_voice = current_.voice.active() || fading_.voice.active();
+    for (const SoundRuntime& sound : sounds_) any_sample_voice |= sound.sampler.active();
+    pub_previewing_.store(any_sample_voice, std::memory_order_relaxed);
 }
 
 StereoPeak Engine::take_master_peak() {

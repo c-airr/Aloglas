@@ -3,6 +3,9 @@
 // "Preview" switch, like the LOG panel's Clear button.
 #pragma once
 
+#include <filesystem>
+#include <functional>
+
 #include "app/browser_model.h"
 #include "app/previewer.h"
 #include "ui/widget.h"
@@ -24,6 +27,7 @@ public:
 
     bool preview_on() const { return preview_on_; }
     void set_preview_on(bool on);
+    std::function<void(const std::filesystem::path&)> on_add_sample;
 
     void layout(Rect r) override;
     void draw(Canvas& c) override;

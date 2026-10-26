@@ -1,5 +1,5 @@
-// An audio file decoded into memory: what the browser previews and (later)
-// what the sampler plays. Immutable once decoded, so the audio thread can
+// An audio file decoded into memory: what the browser previews and the
+// sampler plays. Immutable once decoded, so the audio thread can
 // read it while the UI thread holds it too.
 #pragma once
 

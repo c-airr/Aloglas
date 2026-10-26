@@ -3,6 +3,7 @@
 #pragma once
 
 #include "app/browser_panel.h"
+#include "app/channel_rack.h"
 #include "app/controller.h"
 #include "app/live_state.h"
 #include "app/log.h"
@@ -21,7 +22,8 @@ class MainView : public Widget {
 public:
     // The browser and the popup live outside (main wires them to the loader
     // and previewer); the view places them.
-    MainView(Controller& controller, const LiveState& live, Log& log, BrowserPanel& browser, PopupMenu& popup);
+    MainView(Controller& controller, const LiveState& live, Log& log, BrowserPanel& browser,
+             PopupMenu& popup, ChannelRack* rack_body = nullptr);
 
     // The sizes the user chose (saved in settings). The layout uses a
     // clamped copy, so a tiny or minimized window never overwrites them.
@@ -50,8 +52,9 @@ private:
     Panel rack_{"CHANNEL RACK", focused_};
     Panel log_{"LOG", focused_};
     Panel piano_{"PIANO ROLL", focused_};
-    // Bodies of the panels that later steps fill in.
-    Widget playlist_body_, rack_body_, piano_body_;
+    // Playlist and Piano Roll are filled by later steps.
+    Widget playlist_body_, rack_placeholder_;
+    Widget piano_body_;
     LogPanel log_body_;
     StatusBar status_;
     Splitter split_browser_;
