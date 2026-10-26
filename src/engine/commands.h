@@ -4,7 +4,8 @@
 // the lock-free SpscQueue without allocating. The one pointer, `preview`,
 // moves ownership of a heap payload to the engine (see engine/preview.h).
 // The meaning of the generic fields depends on the type; use the named
-// constructors instead of filling fields by hand.
+// constructors instead of filling fields by hand. Preview and snapshot
+// pointers transfer ownership to the engine when send() accepts them.
 #pragma once
 
 #include <cstdint>
@@ -14,6 +15,7 @@
 namespace aloglas {
 
 struct PreviewPayload;
+struct Snapshot;
 
 // LOOP plays the loop (pattern) from its start; SONG plays the playlist.
 enum class PlayMode : uint8_t { Loop, Song };
@@ -31,6 +33,8 @@ enum class CommandType : uint8_t {
     SetLoopLength, // a = loop length in ticks
     PreviewSample, // preview = payload (owned by the engine from now on)
     StopPreview,
+    SetSnapshot,   // snapshot = immutable document state, ownership moves to engine
+    PreviewNote,   // a = sound id, b = pitch, number = velocity
 };
 
 struct Command {
@@ -40,6 +44,7 @@ struct Command {
     int64_t b = 0;
     bool flag = false;
     PreviewPayload* preview = nullptr;
+    Snapshot* snapshot = nullptr;
 
     static Command play() { return {CommandType::Play}; }
     static Command stop() { return {CommandType::Stop}; }
@@ -63,6 +68,18 @@ struct Command {
         return c;
     }
     static Command stop_preview() { return {CommandType::StopPreview}; }
+    static Command set_snapshot(Snapshot* owned) {
+        Command c{CommandType::SetSnapshot};
+        c.snapshot = owned;
+        return c;
+    }
+    static Command preview_note(uint64_t sound_id, int pitch, float velocity = 0.8f) {
+        Command c{CommandType::PreviewNote};
+        c.a = static_cast<int64_t>(sound_id);
+        c.b = pitch;
+        c.number = velocity;
+        return c;
+    }
 };
 
 // Anything that accepts commands: the real Engine, or a recorder in tests.

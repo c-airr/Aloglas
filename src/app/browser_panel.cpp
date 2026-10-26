@@ -16,6 +16,10 @@ BrowserPanel::BrowserPanel(BrowserModel& model, Previewer& previewer, PopupMenu&
         const BrowserNode& n = *model_.rows()[i].node;
         if (!n.folder && preview_on_) previewer_.preview(n.path);
     };
+    tree_.on_activate = [this](std::size_t i) {
+        const BrowserNode& n = *model_.rows()[i].node;
+        if (!n.folder && on_add_sample) on_add_sample(n.path);
+    };
     tree_.on_expand = [this](std::size_t i, bool expand) { model_.set_expanded(i, expand); };
     tree_.on_context = [this](std::size_t i, Point at) {
         const BrowserRow& r = model_.rows()[i];

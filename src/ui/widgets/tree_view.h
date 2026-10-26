@@ -24,6 +24,7 @@ public:
     std::function<std::size_t()> count;
     std::function<TreeRow(std::size_t)> row;
     std::function<void(std::size_t)> on_select;               // click or arrow keys
+    std::function<void(std::size_t)> on_activate;              // Enter on the selected row
     std::function<void(std::size_t, bool expand)> on_expand;  // triangle, double-click, Left/Right
     std::function<void(std::size_t, Point)> on_context;       // right click
 

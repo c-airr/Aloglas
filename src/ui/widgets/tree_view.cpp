@@ -87,6 +87,9 @@ bool TreeView::on_key(const KeyEvent& e) {
     if (n == 0 || e.mods.ctrl || e.mods.alt) return false;
     const int s = selected_;
     switch (e.key) {
+    case Key::Enter:
+        if (s >= 0 && on_activate) on_activate(static_cast<std::size_t>(s));
+        return true;
     case Key::Up:
         if (s > 0) choose(s - 1);
         else if (s < 0) choose(0);

@@ -56,6 +56,7 @@ target_link_libraries(aloglas_samples PUBLIC aloglas_core PRIVATE aloglas_miniau
 add_library(aloglas_engine STATIC
   src/engine/click.cpp
   src/engine/engine.cpp
+  src/engine/sampler.cpp
   src/engine/sample_voice.cpp)
 aloglas_project_target(aloglas_engine)
 target_link_libraries(aloglas_engine PUBLIC aloglas_core aloglas_samples)
@@ -96,6 +97,7 @@ target_link_libraries(aloglas_ui
 # Everything of the app except main(), so tests can link it.
 add_library(aloglas_app_lib STATIC
   src/app/document.cpp
+  src/app/compile.cpp
   src/app/controller.cpp
   src/app/log.cpp
   src/app/log_panel.cpp
@@ -108,7 +110,8 @@ add_library(aloglas_app_lib STATIC
   src/app/settings.cpp
   src/app/browser_model.cpp
   src/app/previewer.cpp
-  src/app/browser_panel.cpp)
+  src/app/browser_panel.cpp
+  src/app/channel_rack.cpp)
 aloglas_project_target(aloglas_app_lib)
 target_link_libraries(aloglas_app_lib
   PUBLIC aloglas_ui aloglas_engine aloglas_audio aloglas_core

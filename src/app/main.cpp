@@ -11,6 +11,7 @@
 
 #include "app/browser_model.h"
 #include "app/browser_panel.h"
+#include "app/channel_rack.h"
 #include "app/controller.h"
 #include "app/document.h"
 #include "app/frame_update.h"
@@ -87,11 +88,13 @@ int main(int argc, char** argv) {
     BrowserModel model(log);
     PopupMenu popup;
     BrowserPanel browser(model, previewer, popup);
+    ChannelRack rack(controller, loader, cache, log, popup);
+    browser.on_add_sample = [&rack](const std::filesystem::path& path) { rack.add_sample(path); };
     browser.set_preview_on(settings.settings.preview);
     for (const auto& folder : settings.settings.browser_folders) model.add_root(folder);
 
     LiveState live;
-    MainView view(controller, live, log, browser, popup);
+    MainView view(controller, live, log, browser, popup, &rack);
     view.sizes() = settings.settings.panels;
     window.set_root(view);
     if (!settings.warning.empty()) log.add(LogLevel::Warning, settings.warning);
@@ -121,7 +124,10 @@ int main(int argc, char** argv) {
     }
 
     window.run([&] {
-        for (const LoadResult& r : loader.take_results()) previewer.on_result(r);
+        for (const LoadResult& r : loader.take_results()) {
+            if (r.preview) previewer.on_result(r);
+            else rack.on_load_result(r);
+        }
         frame_update(engine, device.get(), controller, log, live);
         return needs_frames(live);
     });

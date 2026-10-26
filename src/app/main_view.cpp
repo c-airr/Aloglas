@@ -18,7 +18,7 @@ float share(float px, float total) {
 }  // namespace
 
 MainView::MainView(Controller& controller, const LiveState& live, Log& log, BrowserPanel& browser,
-                   PopupMenu& popup)
+                   PopupMenu& popup, ChannelRack* rack_body)
     : controller_(controller),
       live_(live),
       transport_(controller, live),
@@ -51,7 +51,7 @@ MainView::MainView(Controller& controller, const LiveState& live, Log& log, Brow
     browser_.add_header_widget(browser.preview_button(), 52);
     browser_.add_header_widget(browser.add_folder_button(), 58);
     playlist_.set_body(playlist_body_);
-    rack_.set_body(rack_body_);
+    rack_.set_body(rack_body ? static_cast<Widget&>(*rack_body) : rack_placeholder_);
     log_.set_body(log_body_);
     log_.add_header_widget(log_body_.clear_button(), 40);
     piano_.set_body(piano_body_);

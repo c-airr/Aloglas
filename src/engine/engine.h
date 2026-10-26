@@ -18,7 +18,9 @@
 #include "engine/commands.h"
 #include "engine/garbage.h"
 #include "engine/preview.h"
+#include "engine/sampler.h"
 #include "engine/sample_voice.h"
+#include "engine/snapshot.h"
 
 namespace aloglas {
 
@@ -35,7 +37,7 @@ struct ClickEvent {
 class Engine final : public CommandSink {
 public:
     Engine();
-    // Frees the preview payloads it still holds or that wait in the queues.
+    // Frees preview payloads and snapshots it still holds or that wait in the queues.
     // Precondition: no audio thread runs (the device is closed).
     ~Engine() override;
 
@@ -50,7 +52,7 @@ public:
 
     // Applies queued commands without rendering audio. Only valid while no
     // audio thread is running (no device, device closed).
-    // Also drops previews: without an audio thread they can never finish
+    // Also drops one-shot voices: without an audio thread they cannot finish
     // (0 frames are rendered), and must not resume when a device returns.
     void pump();
 
@@ -87,6 +89,22 @@ private:
     void apply(const Command& c);
     int64_t origin() const;  // where Play starts and Stop returns to
     void log_click(bool accent);
+    void set_snapshot(Snapshot* snapshot);
+    void retire_snapshot(Snapshot* snapshot);
+    void collect_retired_snapshots();
+    std::size_t event_cursor_for(double tick) const;
+    const SnapshotSound* find_sound(uint64_t id) const;
+    struct SoundRuntime {
+        uint64_t id = 0;
+        Sampler sampler;
+        float gain = 1;
+        float pan_left = 0.70710678f;
+        float pan_right = 0.70710678f;
+        bool audible = false;
+    };
+    SoundRuntime* runtime(uint64_t id);
+    static constexpr std::size_t kRuntimeCount = 128;
+    static constexpr std::size_t kRetiredSnapshotCount = 8;
 
     SpscQueue<Command, 256> queue_;
     bool assert_on_drop_ = true;
@@ -111,6 +129,19 @@ private:
     int64_t next_beat_ = 0;       // tick of the next metronome click
     int64_t frame_ = 0;           // frames rendered since construction
     ClickVoice click_;
+
+    // Snapshot ownership remains on the UI side: replaced snapshots return
+    // through the same audio-to-UI garbage queue as preview payloads.
+    Snapshot* snapshot_ = nullptr;
+    uint64_t snapshot_generation_ = 0;
+    struct RetiredSnapshot {
+        Snapshot* snapshot = nullptr;
+        uint64_t generation = 0;
+    };
+    std::array<RetiredSnapshot, kRetiredSnapshotCount> retired_snapshots_{};
+    std::size_t retired_snapshot_count_ = 0;
+    std::array<SoundRuntime, kRuntimeCount> sounds_{};
+    std::size_t event_cursor_ = 0;
 
     // Preview: the voice that plays and the one fading out after it.
     struct PreviewSlot {
