@@ -87,6 +87,8 @@ public:
     void set_clipboard_text(std::string_view text) override;
     void set_text_input(bool on) override;
     void set_cursor(Cursor c) override;
+    void begin_drag(DragPayload payload) override;
+    void end_drag() override;
     void pick_folder(std::function<void(std::filesystem::path)> on_picked) override;
 
     // Thread-safe: makes run() wake up from its idle wait (a background
@@ -108,7 +110,7 @@ private:
     NVGcontext* vg_ = nullptr;
     int font_regular_ = -1;
     int font_bold_ = -1;
-    SDL_Cursor* cursors_[3] = {};  // indexed by Cursor, created on first use
+    SDL_Cursor* cursors_[4] = {};  // indexed by Cursor, created on first use
     Widget* root_ = nullptr;
     std::unique_ptr<EventRouter> router_;
     bool dirty_ = true;

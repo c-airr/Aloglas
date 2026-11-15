@@ -20,6 +20,14 @@ BrowserPanel::BrowserPanel(BrowserModel& model, Previewer& previewer, PopupMenu&
         const BrowserNode& n = *model_.rows()[i].node;
         if (!n.folder && on_add_sample) on_add_sample(n.path);
     };
+    tree_.drag_payload = [this](std::size_t i) -> std::optional<DragPayload> {
+        const BrowserNode& n = *model_.rows()[i].node;
+        if (n.folder) return std::nullopt;
+        DragPayload payload;
+        payload.kind = DragKind::SampleFile;
+        payload.path = n.path;
+        return payload;
+    };
     tree_.on_expand = [this](std::size_t i, bool expand) { model_.set_expanded(i, expand); };
     tree_.on_context = [this](std::size_t i, Point at) {
         const BrowserRow& r = model_.rows()[i];

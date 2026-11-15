@@ -20,6 +20,12 @@ struct FakeHost : UiHost {
     void set_clipboard_text(std::string_view text) override { clipboard = std::string(text); }
     void set_text_input(bool on) override { text_input = on; }
     void set_cursor(Cursor c) override { cursor = c; }
+    void begin_drag(DragPayload payload) override {
+        dragging = true;
+        drag = payload;
+        router.begin_drag(payload);
+    }
+    void end_drag() override { dragging = false; }
     void pick_folder(std::function<void(std::filesystem::path)> on_picked) override {
         folder_request = std::move(on_picked);
     }
@@ -29,6 +35,8 @@ struct FakeHost : UiHost {
     std::string clipboard;
     bool text_input = false;
     Cursor cursor = Cursor::Arrow;
+    bool dragging = false;
+    DragPayload drag;
     // The last folder request; a test calls it to play the user picking a folder.
     std::function<void(std::filesystem::path)> folder_request;
 };

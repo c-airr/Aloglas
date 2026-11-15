@@ -306,10 +306,19 @@ WindowPlacement Window::placement() const {
 
 void Window::set_cursor(Cursor c) {
     static constexpr SDL_SystemCursor kSystem[] = {SDL_SYSTEM_CURSOR_DEFAULT, SDL_SYSTEM_CURSOR_EW_RESIZE,
-                                                   SDL_SYSTEM_CURSOR_NS_RESIZE};
+                                                   SDL_SYSTEM_CURSOR_NS_RESIZE, SDL_SYSTEM_CURSOR_MOVE};
     const auto i = static_cast<std::size_t>(c);
     if (!cursors_[i]) cursors_[i] = SDL_CreateSystemCursor(kSystem[i]);
     if (cursors_[i]) SDL_SetCursor(cursors_[i]);
+}
+
+void Window::begin_drag(DragPayload payload) {
+    if (router_) router_->begin_drag(payload);
+    set_cursor(Cursor::Move);
+}
+
+void Window::end_drag() {
+    set_cursor(Cursor::Arrow);
 }
 
 void Window::set_text_input(bool on) {

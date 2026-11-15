@@ -16,6 +16,7 @@
 #include <string_view>
 #include <vector>
 
+#include "ui/drag.h"
 #include "ui/events.h"
 #include "ui/geometry.h"
 
@@ -24,7 +25,7 @@ namespace aloglas {
 class Canvas;
 class Widget;
 
-enum class Cursor { Arrow, ResizeH, ResizeV };
+enum class Cursor { Arrow, ResizeH, ResizeV, Move };
 
 // What the widget tree needs from its environment (the Window, or a fake in tests).
 class UiHost {
@@ -38,6 +39,10 @@ public:
     virtual void set_clipboard_text(std::string_view text) = 0;
     virtual void set_text_input(bool on) = 0;      // start/stop OS text input
     virtual void set_cursor(Cursor c) = 0;
+    // Starts a cross-panel drag; the router delivers the drop on mouse up
+    // and then calls end_drag().
+    virtual void begin_drag(DragPayload payload) = 0;
+    virtual void end_drag() = 0;
     // Shows the system "choose folder" dialog; `on_picked` runs later on the
     // UI thread, and not at all when the user cancels.
     virtual void pick_folder(std::function<void(std::filesystem::path)> on_picked) = 0;
@@ -91,6 +96,10 @@ public:
     virtual bool on_wheel(const WheelEvent&) { return false; }
     virtual bool on_key(const KeyEvent&) { return false; }
     virtual bool on_text(const TextEvent&) { return false; }
+    // A cross-panel drag: the widget under the release point gets the first
+    // say, then its ancestors (a panel around a body).
+    virtual bool accepts_drop(const DragPayload&, Point) const { return false; }
+    virtual void on_drop(const DragPayload&, Point) {}
     virtual void on_hover_enter() {}
     virtual void on_hover_leave() {}
     virtual void on_focus_gained() {}

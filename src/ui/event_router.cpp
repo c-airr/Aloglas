@@ -41,8 +41,21 @@ void EventRouter::mouse_up(const MouseEvent& e) {
         Widget* c = captured_;
         captured_ = nullptr;
         c->on_mouse_up(e);
+        if (drag_ && e.button == MouseButton::Left) deliver_drop(e.pos);
     }
     update_hover(e.pos);
+}
+
+void EventRouter::deliver_drop(Point p) {
+    const DragPayload payload = drag_;
+    drag_ = {};
+    for (Widget* w = hit_test(root_, p); w; w = w->parent()) {
+        if (w->accepts_drop(payload, p)) {
+            w->on_drop(payload, p);
+            break;
+        }
+    }
+    if (UiHost* h = root_.host()) h->end_drag();
 }
 
 void EventRouter::mouse_move(const MouseEvent& e) {

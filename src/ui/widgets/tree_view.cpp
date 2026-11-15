@@ -11,6 +11,9 @@ namespace aloglas {
 namespace {
 constexpr float kIndent = 12;
 constexpr float kLeft = 4;  // gap before the first triangle
+// How far the pointer must move with the button held before a press becomes
+// a drag (so a slightly shaky click still selects).
+constexpr float kDragThreshold = 4;
 }  // namespace
 
 int TreeView::visible_rows() const {
@@ -50,6 +53,7 @@ void TreeView::layout(Rect r) {
 
 bool TreeView::on_mouse_down(const MouseEvent& e) {
     focus();
+    pressed_ = -1;
     const int i = row_at(e.pos.y);
     if (i < 0) return true;
     const TreeRow r = row(static_cast<std::size_t>(i));
@@ -73,7 +77,25 @@ bool TreeView::on_mouse_down(const MouseEvent& e) {
         return true;
     }
     choose(i);
+    pressed_ = i;
+    press_pos_ = e.pos;
     return true;
+}
+
+void TreeView::on_mouse_up(const MouseEvent& e) {
+    (void)e;
+    pressed_ = -1;
+}
+
+void TreeView::on_mouse_move(const MouseEvent& e) {
+    if (pressed_ < 0 || !drag_payload) return;
+    if (std::abs(e.pos.x - press_pos_.x) < kDragThreshold && std::abs(e.pos.y - press_pos_.y) < kDragThreshold)
+        return;
+    const int row = pressed_;
+    pressed_ = -1;  // one drag per press
+    std::optional<DragPayload> payload = drag_payload(static_cast<std::size_t>(row));
+    if (!payload) return;
+    if (UiHost* h = host()) h->begin_drag(*payload);
 }
 
 bool TreeView::on_wheel(const WheelEvent& e) {

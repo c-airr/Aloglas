@@ -159,7 +159,11 @@ add_executable(aloglas_tests
   tests/browser_model_test.cpp
   tests/tree_view_test.cpp
   tests/previewer_test.cpp
-  tests/browser_panel_test.cpp)
+  tests/browser_panel_test.cpp
+  tests/compile_test.cpp
+  tests/sampler_test.cpp
+  tests/channel_rack_test.cpp
+  tests/engine_snapshot_test.cpp)
 aloglas_project_target(aloglas_tests)
 aloglas_static_exe(aloglas_tests)
 target_include_directories(aloglas_tests PRIVATE tests)

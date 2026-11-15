@@ -30,6 +30,9 @@ public:
     bool on_mouse_down(const MouseEvent& e) override;
     bool on_wheel(const WheelEvent& e) override;
     bool on_key(const KeyEvent& e) override;
+    // Samples dragged from the browser land here.
+    bool accepts_drop(const DragPayload& payload, Point at) const override;
+    void on_drop(const DragPayload& payload, Point at) override;
 
 private:
     int row_at(float y) const;

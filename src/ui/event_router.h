@@ -24,6 +24,10 @@ public:
     // Text goes only to the focused widget.
     bool text(const TextEvent& e);
 
+    // The one cross-panel drag in flight (empty when nothing is dragged).
+    void begin_drag(DragPayload payload) { drag_ = payload; }
+    const DragPayload& drag() const { return drag_; }
+
     Widget* focus() const { return focus_; }
     void set_focus(Widget* w);
     Widget* captured() const { return captured_; }
@@ -35,12 +39,14 @@ public:
 
 private:
     void update_hover(Point p);
+    void deliver_drop(Point p);
 
     Widget& root_;
     Widget* focus_ = nullptr;
     Widget* captured_ = nullptr;
     Widget* hovered_ = nullptr;
     MouseButton captured_button_ = MouseButton::Left;
+    DragPayload drag_;
 };
 
 }  // namespace aloglas

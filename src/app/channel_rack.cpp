@@ -170,6 +170,14 @@ bool ChannelRack::on_mouse_down(const MouseEvent& e) {
     return true;
 }
 
+bool ChannelRack::accepts_drop(const DragPayload& payload, Point) const {
+    return payload.kind == DragKind::SampleFile && !payload.path.empty();
+}
+
+void ChannelRack::on_drop(const DragPayload& payload, Point) {
+    if (accepts_drop(payload, {})) add_sample(payload.path);
+}
+
 bool ChannelRack::on_wheel(const WheelEvent& e) {
     const int visible = std::max(1, static_cast<int>(rect.h / theme().row_height));
     const int count = static_cast<int>(controller_.doc().sounds.size());
