@@ -107,6 +107,26 @@ TEST_CASE("a sample dragged from the browser lands in the rack") {
     CHECK(f.sink.sent.back().snapshot->sounds.size() == 1);
 }
 
+TEST_CASE("a file dropped from Explorer lands in the rack") {
+    Fixture f;
+    DragPayload payload;
+    payload.kind = DragKind::SampleFile;
+    payload.path = f.dir / "a.wav";
+    f.router.drop(payload, {300, 60});
+    REQUIRE(f.doc.sounds.size() == 1);
+    CHECK(f.doc.sounds[0].sample_path == f.dir / "a.wav");
+    CHECK(f.rack.selected_sound() == f.doc.sounds[0].id);
+}
+
+TEST_CASE("a file dropped outside the rack adds nothing") {
+    Fixture f;
+    DragPayload payload;
+    payload.kind = DragKind::SampleFile;
+    payload.path = f.dir / "a.wav";
+    f.router.drop(payload, {100, 250});  // over the browser tree
+    CHECK(f.doc.sounds.empty());
+}
+
 TEST_CASE("dropping a sample outside the rack adds nothing") {
     Fixture f;
     drag(f.router, f.file_row(1), {100, 250});  // back onto the browser tree

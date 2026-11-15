@@ -3,6 +3,7 @@
 // widget tree only when something changed (or while animating).
 #pragma once
 
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -63,6 +64,11 @@ public:
     const std::string& error() const { return error_; }
 
     void set_root(Widget& root);
+
+    // Files dragged in from the OS (Explorer). The app sets the filter, so a
+    // dropped .txt never looks like a sample; an accepted file becomes a
+    // SampleFile drop at the point it was released.
+    std::function<bool(const std::filesystem::path&)> file_drop_filter;
 
     // Runs until the window is closed. `before_frame` runs once per loop turn
     // (after input); returning true asks for continuous frames (e.g. while

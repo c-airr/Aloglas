@@ -382,6 +382,20 @@ void Window::handle(const SDL_Event& e, bool& running) {
             dirty_ = true;
         }
         break;
+    case SDL_EVENT_DROP_FILE: {
+        // A file dragged in from Explorer: the window has no mouse drag of its
+        // own, so the payload goes straight to the widget under the pointer.
+        if (!router_ || !e.drop.data) break;
+        const std::string name = e.drop.data;  // SDL gives UTF-8
+        const std::filesystem::path path{std::u8string(name.begin(), name.end())};
+        if (file_drop_filter && !file_drop_filter(path)) break;
+        DragPayload payload;
+        payload.kind = DragKind::SampleFile;
+        payload.path = path;
+        router_->drop(payload, {e.drop.x * k, e.drop.y * k});
+        dirty_ = true;
+        break;
+    }
     case SDL_EVENT_KEY_DOWN:
         if (router_) {
             router_->key({map_key(e.key.key), map_mods(e.key.mod), e.key.repeat});

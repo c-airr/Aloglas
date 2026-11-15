@@ -49,13 +49,17 @@ void EventRouter::mouse_up(const MouseEvent& e) {
 void EventRouter::deliver_drop(Point p) {
     const DragPayload payload = drag_;
     drag_ = {};
+    drop(payload, p);
+    if (UiHost* h = root_.host()) h->end_drag();
+}
+
+void EventRouter::drop(const DragPayload& payload, Point p) {
     for (Widget* w = hit_test(root_, p); w; w = w->parent()) {
         if (w->accepts_drop(payload, p)) {
             w->on_drop(payload, p);
             break;
         }
     }
-    if (UiHost* h = root_.host()) h->end_drag();
 }
 
 void EventRouter::mouse_move(const MouseEvent& e) {

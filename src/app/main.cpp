@@ -58,6 +58,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // Files dragged in from Explorer: only audio is offered to the panels.
+    window.file_drop_filter = [](const std::filesystem::path& p) { return is_audio_file(p); };
+
     Log log;
     log.on_change = [&] { window.invalidate(); };
     Document doc;

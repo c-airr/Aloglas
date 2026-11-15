@@ -28,6 +28,10 @@ public:
     void begin_drag(DragPayload payload) { drag_ = payload; }
     const DragPayload& drag() const { return drag_; }
 
+    // Offers `payload` to the widget under `p` and its ancestors; used for
+    // files dropped from the OS, which have no mouse drag of ours behind them.
+    void drop(const DragPayload& payload, Point p);
+
     Widget* focus() const { return focus_; }
     void set_focus(Widget* w);
     Widget* captured() const { return captured_; }
